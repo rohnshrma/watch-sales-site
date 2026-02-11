@@ -1,0 +1,64 @@
+import Product from "../models/product.js";
+
+export const GET_PRODUCTS = async (req, res) => {
+  try {
+    const products = await Product.find({});
+    if (!products || products.length === 0) {
+      return res.status(404).json({
+        data: null,
+        message: "Products Not Found",
+        status: "fail",
+      });
+    }
+
+    res.status(201).json({
+      data: products,
+      message: "Product Fetched",
+      status: "success",
+    });
+  } catch (error) {
+    res.status(400).json({
+      message: error.message,
+      status: "fail",
+    });
+  }
+};
+export const ADD_PRODUCT = async (req, res) => {
+  try {
+    const { name, price, description, imageUrl } = req.body;
+    if (!name || !price || !description || !imageUrl) {
+      return res.status(400).json({
+        data: null,
+        status: "fail",
+        message: "All Fields Are Required",
+      });
+    }
+
+    const product = await Product.create({
+      name,
+      price,
+      description,
+      imageUrl,
+    });
+
+    res.status(201).json({
+      data: product,
+      message: "Product Added",
+      status: "success",
+    });
+  } catch (error) {
+    res.status(400).json({
+      message: error.message,
+      status: "fail",
+    });
+  }
+};
+export const GET_SINGLE_PRODUCT = (req, res) => {
+  req.send("working");
+};
+export const DELETE_PRODUCT = (req, res) => {
+  req.send("working");
+};
+export const EDIT_PRODUCT = (req, res) => {
+  req.send("working");
+};
