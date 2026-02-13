@@ -10,6 +10,7 @@ connectDB();
 const app = express();
 
 app.use(cors());
+app.use(express.json()); // Parse JSON request bodies
 app.use(morgan("dev"));
 app.use("/api/products", productRoutes);
 
