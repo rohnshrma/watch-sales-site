@@ -1,29 +1,54 @@
 import axios from "axios";
-import { createContext, useReducer } from "react";
+import { act, createContext, useReducer } from "react";
 
 const ProductContext = createContext();
 
-const initialState = [];
+const initialState = {
+  products: [],
+  product: null,
+};
 const productsReducer = (state, action) => {
   if (action.type === "ADD") {
-    return [action.payload, ...state];
-  } else if (action.type === "FETCH") {
-    return action.payload;
+    return {
+      ...state,
+      products: [...action.payload, ...state.products],
+    };
+  } else if (action.type === "FETCH_PRODUCTS") {
+    return {
+      ...state,
+      products: action.payload,
+    };
+  } else if (action.type === "FETCH_PRODUCT") {
+    return {
+      ...state,
+      product: action.payload,
+    };
   } else {
     return state;
   }
 };
 
 export const ProductProvider = ({ children }) => {
-  const [products, dispatch] = useReducer(productsReducer, initialState);
+  const [state, dispatch] = useReducer(productsReducer, initialState);
 
   const fetchProducts = async () => {
     try {
       const res = await axios.get("http://localhost:3000/api/products");
       console.log("Fetched products:", res.data);
-      dispatch({ type: "FETCH", payload: res.data.data });
+      dispatch({ type: "FETCH_PRODUCTS", payload: res.data.data });
     } catch (err) {
       console.error("Error fetching products:", err);
+      console.error("Error response:", err.response?.data);
+    }
+  };
+
+  const fetchProduct = async (id) => {
+    try {
+      const res = await axios.get(`http://localhost:3000/api/products/${id}`);
+      console.log("Fetched product:", res.data);
+      dispatch({ type: "FETCH_PRODUCT", payload: res.data.data });
+    } catch (err) {
+      console.error("Error fetching product:", err);
       console.error("Error response:", err.response?.data);
     }
   };
@@ -47,7 +72,15 @@ export const ProductProvider = ({ children }) => {
   };
 
   return (
-    <ProductContext.Provider value={{ products, addNewProduct, fetchProducts }}>
+    <ProductContext.Provider
+      value={{
+        products: state.products,
+        product: state.product,
+        addNewProduct,
+        fetchProducts,
+        fetchProduct,
+      }}
+    >
       {children}
     </ProductContext.Provider>
   );

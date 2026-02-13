@@ -13,7 +13,7 @@ export const GET_PRODUCTS = async (req, res) => {
 
     res.status(201).json({
       data: products,
-      message: "Product Fetched",
+      message: "Products Fetched",
       status: "success",
     });
   } catch (error) {
@@ -53,8 +53,30 @@ export const ADD_PRODUCT = async (req, res) => {
     });
   }
 };
-export const GET_SINGLE_PRODUCT = (req, res) => {
-  req.send("working");
+export const GET_SINGLE_PRODUCT = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const product = await Product.findOne({ _id: id });
+    if (!product) {
+      return res.status(404).json({
+        data: null,
+        message: "Product Not Found",
+        status: "fail",
+      });
+    }
+
+    res.status(201).json({
+      data: product,
+      message: "Product Fetched",
+      status: "success",
+    });
+  } catch (error) {
+    res.status(400).json({
+      message: error.message,
+      status: "fail",
+    });
+  }
 };
 export const DELETE_PRODUCT = (req, res) => {
   req.send("working");

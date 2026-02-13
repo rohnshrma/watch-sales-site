@@ -31,6 +31,11 @@ const Nav = () => {
                 ➕ Add Product
               </Link>
             </li>
+            <li className="nav-item">
+              <Link className="nav-link" to="/admin/dashboard">
+                👨🏻‍💼 ADMIN
+              </Link>
+            </li>
           </ul>
         </div>
       </div>

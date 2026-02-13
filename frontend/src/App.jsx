@@ -5,6 +5,9 @@ import Nav from "./Components/Nav";
 import Home from "./Pages/Home";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.css";
+import ProductPage from "./Pages/ProductPage";
+import AdminDashboard from "./Pages/Admin/AdminDashboard";
+import ManageProducts from "./Pages/Admin/ManageProducts";
 
 const App = () => {
   return (
@@ -14,6 +17,9 @@ const App = () => {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/add-product" element={<AddProduct />} />
+        <Route path="/product/:id" element={<ProductPage />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        <Route path="/admin/manage-products" element={<ManageProducts />} />
       </Routes>
 
       {/* <Footer /> */}

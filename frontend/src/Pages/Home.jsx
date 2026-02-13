@@ -15,6 +15,9 @@ const Home = () => {
     loadProducts();
   }, []);
 
+  // empty square brackets represents an empty dependency array , which make sures that the use effect
+  // runs only once that too when the react app loads for the first time
+
   if (loading) {
     return (
       <div className="container mt-5 text-center">
