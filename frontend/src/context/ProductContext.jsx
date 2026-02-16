@@ -11,7 +11,7 @@ const productsReducer = (state, action) => {
   if (action.type === "ADD") {
     return {
       ...state,
-      products: [...action.payload, ...state.products],
+      products: [action.payload, ...state.products],
     };
   } else if (action.type === "FETCH_PRODUCTS") {
     return {
@@ -53,6 +53,37 @@ export const ProductProvider = ({ children }) => {
     }
   };
 
+  const deleteProduct = async (id) => {
+    try {
+      const res = await axios.delete(
+        `http://localhost:3000/api/products/${id}`
+      );
+      console.log("Product Deleted:", res.data);
+      await fetchProducts();
+      console.log("success");
+    } catch (err) {
+      console.error("Error fetching product:", err);
+      console.error("Error response:", err.response?.data);
+    }
+  };
+
+  const editProduct = async (id, updatedProduct) => {
+    try {
+      const res = await axios.put(
+        `http://localhost:3000/api/products/${id}`,
+        updatedProduct
+      );
+      console.log("Updated", res.data);
+      await fetchProducts();
+      return res.data;
+    } catch (err) {
+      console.error("Error Updating product:", err);
+      console.error("Error response:", err.response?.data);
+      // Re-throw the error so it can be caught by the component
+      throw err;
+    }
+  };
+
   const addNewProduct = async (product) => {
     try {
       console.log("Sending product data:", product);
@@ -79,6 +110,8 @@ export const ProductProvider = ({ children }) => {
         addNewProduct,
         fetchProducts,
         fetchProduct,
+        deleteProduct,
+        editProduct,
       }}
     >
       {children}

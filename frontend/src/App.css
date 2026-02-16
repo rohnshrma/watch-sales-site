@@ -392,6 +392,12 @@ body {
   font-size: 1rem;
 }
 
+/* manage products */
+.manage-products-page {
+  padding: 3rem 0;
+  min-height: calc(100vh - 56px);
+}
+
 /* Responsive Adjustments */
 @media (max-width: 768px) {
   .page-header h1 {

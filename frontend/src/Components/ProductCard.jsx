@@ -1,8 +1,11 @@
-import React from "react";
+import React, { useContext } from "react";
 import { useNavigate } from "react-router-dom";
+import ProductContext from "../context/ProductContext";
 
-const ProductCard = ({ product }) => {
+const ProductCard = ({ product, isAdmin }) => {
   const navigate = useNavigate();
+
+  const { deleteProduct } = useContext(ProductContext);
 
   return (
     <div className="col-lg-4 col-md-6 mb-4">
@@ -46,7 +49,17 @@ const ProductCard = ({ product }) => {
               <span className="price-label">PRICE</span>
               <span className="price-value">₹{product.price}</span>
             </div>
-            <button className="add-to-cart-btn">Add to cart</button>
+
+            {isAdmin ? (
+              <button
+                className="add-to-cart-btn"
+                onClick={() => deleteProduct(product._id)}
+              >
+                Delete
+              </button>
+            ) : (
+              <button className="add-to-cart-btn">Add to cart</button>
+            )}
           </div>
         </div>
       </div>
