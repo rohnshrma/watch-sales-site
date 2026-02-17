@@ -224,6 +224,20 @@ body {
   line-height: 1;
 }
 
+.edit-product-btn {
+  flex: 1;
+  padding: 0.875rem 1.5rem;
+  background: var(--teal);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
 .add-to-cart-btn {
   flex: 1;
   padding: 0.875rem 1.5rem;
@@ -243,7 +257,40 @@ body {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(240, 93, 94, 0.4);
 }
+.edit-product-btn:hover {
+  background: #084446;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(11, 88, 91, 0.4);
+}
 
+.action-section {
+  display: flex;
+  gap: 0.6rem;
+  flex: 1;
+}
+
+.action-section button {
+  flex: 1;
+}
+
+/* Delete button style */
+.delete-btn {
+  background: #ff4d4f;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.875rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.delete-btn:hover {
+  background: #d9363e;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 77, 79, 0.4);
+}
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .product-bottom {

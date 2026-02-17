@@ -50,16 +50,29 @@ const ProductCard = ({ product, isAdmin }) => {
               <span className="price-value">₹{product.price}</span>
             </div>
 
-            {isAdmin ? (
-              <button
-                className="add-to-cart-btn"
-                onClick={() => deleteProduct(product._id)}
-              >
-                Delete
-              </button>
-            ) : (
-              <button className="add-to-cart-btn">Add to cart</button>
-            )}
+            <div className="action-section">
+              {isAdmin ? (
+                <>
+                  <button
+                    className="delete-btn"
+                    onClick={() => deleteProduct(product._id)}
+                  >
+                    Delete
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      navigate(`/admin/edit-product/${product._id}`)
+                    }
+                    className="edit-product-btn"
+                  >
+                    Edit
+                  </button>
+                </>
+              ) : (
+                <button className="add-to-cart-btn">Add to cart</button>
+              )}
+            </div>
           </div>
         </div>
       </div>

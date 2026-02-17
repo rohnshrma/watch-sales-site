@@ -1,5 +1,6 @@
-import React, { useReducer, useContext, useState } from "react";
-import ProductContext from "../context/ProductContext";
+import React, { useReducer, useContext, useState, useEffect } from "react";
+import ProductContext from "../../context/ProductContext";
+import { useParams } from "react-router-dom";
 
 const initialState = {
   name: "",
@@ -19,6 +20,8 @@ const productReducer = (state, action) => {
       ...state,
       [action.type]: action.payload,
     };
+  } else if (action.type === "LOAD_PRODUCT") {
+    return action.payload;
   } else if (action.type === "RESET") {
     return initialState;
   } else {
@@ -27,11 +30,12 @@ const productReducer = (state, action) => {
 };
 
 const EditProduct = () => {
+  const { id } = useParams();
   const [product, dispatch] = useReducer(productReducer, initialState);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const { addNewProduct, fetchProducts } = useContext(ProductContext);
+  const { products, editProduct, fetchProducts } = useContext(ProductContext);
 
   const changeHandler = (e) => {
     const { value, name } = e.target;
@@ -40,6 +44,18 @@ const EditProduct = () => {
     if (error) setError("");
     if (success) setSuccess("");
   };
+
+  useEffect(() => {
+    if (!products.length) {
+      fetchProducts();
+      return;
+    }
+
+    const existingProduct = products.find((p) => p._id === id);
+    if (existingProduct) {
+      dispatch({ type: "LOAD_PRODUCT", payload: existingProduct });
+    }
+  }, [id, products]);
 
   const validateForm = () => {
     if (
@@ -80,21 +96,21 @@ const EditProduct = () => {
     }
 
     try {
-      await addNewProduct(product);
-      setSuccess("Product added successfully!");
+      await editProduct(id, product);
+      setSuccess("Product Updated successfully!");
       dispatch({ type: "RESET" });
       // Refetch products from database to ensure UI is in sync
       await fetchProducts();
     } catch (err) {
       console.log(err);
-      setError("Failed to add product. Please try again.");
+      setError("Failed to update product. Please try again.");
     }
   };
 
   return (
     <div className="container">
       <div className="add-product">
-        <h1>➕ Add New Product</h1>
+        <h1>🖊️ Update Product</h1>
         <hr />
         {error && (
           <div className="alert alert-danger" role="alert">
@@ -164,7 +180,7 @@ const EditProduct = () => {
             />
           </div>
           <button type="submit" className="btn btn-success btn-lg btn-block">
-            Add Product
+            Update Product
           </button>
         </form>
       </div>

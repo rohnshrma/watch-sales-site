@@ -8,6 +8,7 @@ import "./App.css";
 import ProductPage from "./Pages/ProductPage";
 import AdminDashboard from "./Pages/Admin/AdminDashboard";
 import ManageProducts from "./Pages/Admin/ManageProducts";
+import EditProduct from "./Pages/Admin/EditProduct";
 
 const App = () => {
   return (
@@ -20,6 +21,7 @@ const App = () => {
         <Route path="/product/:id" element={<ProductPage />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/manage-products" element={<ManageProducts />} />
+        <Route path="/admin/edit-product/:id" element={<EditProduct />} />
       </Routes>
 
       {/* <Footer /> */}
