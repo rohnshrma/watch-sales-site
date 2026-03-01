@@ -1,17 +1,38 @@
 import Cart from "../models/cart.js";
 import Product from "../models/product.js";
 
+const getCartTotal = (cartItems) => {
+  return cartItems.reduce((acc, item) => acc + Number(item.price) * item.quantity, 0);
+};
+
 export const ADD_TO_CART = async (req, res) => {
   try {
-    const { productId, quantity } = req.body;
+    const { productId, quantity = 1 } = req.body;
     const userId = req.user.id;
+
+    if (!productId) {
+      return res.status(400).json({
+        data: null,
+        status: "fail",
+        message: "productId is required",
+      });
+    }
+
+    const parsedQuantity = Number(quantity);
+    if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
+      return res.status(400).json({
+        data: null,
+        status: "fail",
+        message: "quantity must be a positive integer",
+      });
+    }
 
     const product = await Product.findById(productId);
     if (!product) {
       return res.status(404).json({
         data: null,
         status: "fail",
-        message: "Product Not Found",
+        message: "Product not found",
       });
     }
 
@@ -29,58 +50,57 @@ export const ADD_TO_CART = async (req, res) => {
     );
 
     if (itemIndex > -1) {
-      cart.cartItems[itemIndex].quantity += quantity;
+      cart.cartItems[itemIndex].quantity += parsedQuantity;
     } else {
       cart.cartItems.push({
         product: productId,
         name: product.name,
         imageUrl: product.imageUrl,
-        price: product.price,
-        quantity,
+        price: Number(product.price),
+        quantity: parsedQuantity,
       });
     }
 
-    cart.total = cart.cartItems.reduce(
-      (acc, item) => acc + item.price * item.quantity,
-      0
-    );
+    cart.total = getCartTotal(cart.cartItems);
 
     await cart.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       status: "success",
       data: cart,
-      message: "Product Added To Cart",
+      message: "Product added to cart",
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
       status: "fail",
+      data: null,
     });
   }
 };
 
 export const GET_USER_CART = async (req, res) => {
   try {
-    const cart = await Cart.findOne({ user: req.user.id });
+    const cart = await Cart.findOne({ user: req.user.id }).populate("cartItems.product");
 
     if (!cart) {
       return res.status(200).json({
         status: "success",
         data: { cartItems: [], total: 0 },
-        message: "Cart Empty",
+        message: "Cart empty",
       });
     }
 
-    res.status(200).json({
+    return res.status(200).json({
       status: "success",
       data: cart,
-      message: "Cart Found",
+      message: "Cart found",
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
       status: "fail",
+      data: null,
     });
   }
 };
@@ -89,19 +109,28 @@ export const CLEAR_CART = async (req, res) => {
   try {
     const cart = await Cart.findOne({ user: req.user.id });
 
+    if (!cart) {
+      return res.status(200).json({
+        status: "success",
+        data: { cartItems: [], total: 0 },
+        message: "Cart already empty",
+      });
+    }
+
     cart.cartItems = [];
     cart.total = 0;
     await cart.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       status: "success",
       data: { cartItems: [], total: 0 },
-      message: "Cart Cleared",
+      message: "Cart cleared",
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
       status: "fail",
+      data: null,
     });
   }
 };
@@ -115,30 +144,37 @@ export const REMOVE_CART_ITEM = async (req, res) => {
       return res.status(200).json({
         status: "success",
         data: { cartItems: [], total: 0 },
-        message: "Cart Empty",
+        message: "Cart empty",
       });
     }
 
+    const initialLength = cart.cartItems.length;
     cart.cartItems = cart.cartItems.filter(
       (item) => item.product.toString() !== productId
     );
 
-    cart.total = cart.cartItems.reduce(
-      (acc, item) => acc + item.price * item.quantity,
-      0
-    );
+    if (cart.cartItems.length === initialLength) {
+      return res.status(404).json({
+        status: "fail",
+        data: cart,
+        message: "Item not found in cart",
+      });
+    }
+
+    cart.total = getCartTotal(cart.cartItems);
 
     await cart.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       status: "success",
       data: cart,
-      message: "Product Removed From Cart",
+      message: "Product removed from cart",
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
       status: "fail",
+      data: null,
     });
   }
 };
@@ -148,43 +184,64 @@ export const UPDATE_CART_ITEM = async (req, res) => {
     const { productId, quantity } = req.body;
     const cart = await Cart.findOne({ user: req.user.id });
 
+    if (!productId) {
+      return res.status(400).json({
+        status: "fail",
+        data: null,
+        message: "productId is required",
+      });
+    }
+
+    const parsedQuantity = Number(quantity);
+    if (!Number.isInteger(parsedQuantity) || parsedQuantity < 0) {
+      return res.status(400).json({
+        status: "fail",
+        data: null,
+        message: "quantity must be a non-negative integer",
+      });
+    }
+
     if (!cart) {
       return res.status(200).json({
         status: "success",
         data: { cartItems: [], total: 0 },
-        message: "Cart Empty",
+        message: "Cart empty",
       });
     }
 
     const item = cart.cartItems.find(
-      (item) => item.product.toString() === productId
+      (cartItem) => cartItem.product.toString() === productId
     );
 
     if (!item) {
       return res.status(404).json({
         status: "fail",
         data: cart,
-        message: "Item Not Found",
+        message: "Item not found",
       });
     }
 
-    item.quantity = quantity;
+    if (parsedQuantity === 0) {
+      cart.cartItems = cart.cartItems.filter(
+        (cartItem) => cartItem.product.toString() !== productId
+      );
+    } else {
+      item.quantity = parsedQuantity;
+    }
 
-    cart.total = cart.cartItems.reduce(
-      (acc, item) => acc + item.price * item.quantity,
-      0
-    );
+    cart.total = getCartTotal(cart.cartItems);
 
     await cart.save();
-    res.status(200).json({
+    return res.status(200).json({
       status: "success",
       data: cart,
-      message: "Cart Updated",
+      message: "Cart updated",
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       message: error.message,
       status: "fail",
+      data: null,
     });
   }
 };

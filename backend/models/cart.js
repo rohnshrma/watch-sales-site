@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+
 const cartItemSchema = new mongoose.Schema(
   {
     product: {
@@ -6,12 +7,23 @@ const cartItemSchema = new mongoose.Schema(
       ref: "Product",
       required: true,
     },
-    name: String,
-    imageUrl: String,
-    price: Number,
+    name: {
+      type: String,
+      required: true,
+    },
+    imageUrl: {
+      type: String,
+      required: true,
+    },
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
     quantity: {
       type: Number,
       default: 1,
+      min: 1,
     },
   },
   { _id: false }
@@ -29,11 +41,12 @@ const cartSchema = new mongoose.Schema(
     total: {
       type: Number,
       default: 0,
+      min: 0,
     },
   },
   { timestamps: true }
 );
 
-const Cart = new mongoose.model("cart", cartSchema);
+const Cart = mongoose.model("Cart", cartSchema);
 
 export default Cart;
