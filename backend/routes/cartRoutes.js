@@ -11,6 +11,6 @@ const router = Router();
 
 router.route("/").post(ADD_TO_CART).get(GET_USER_CART).put(UPDATE_CART_ITEM);
 router.route("/clear").delete(CLEAR_CART);
-router.route("/:productId".delete(REMOVE_CART_ITEM));
+router.route("/:productId").delete(REMOVE_CART_ITEM);
 
 export default router;

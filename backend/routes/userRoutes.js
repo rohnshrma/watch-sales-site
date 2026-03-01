@@ -4,7 +4,7 @@ import {
   LOGIN,
   GET_USER_PROFILE,
   DELETE_USER,
-  UPDATE_CART_ITEM,
+  UPDATE_USER_PROFILE,
 } from "../controllers/userController.js";
 
 import { protect } from "../middlewares/authMiddleware.js";
@@ -15,7 +15,7 @@ router.post("/register", REGISTER);
 router.post("/login", LOGIN);
 
 router.get("/profile", protect, GET_USER_PROFILE);
-router.put("/profile", protect, UPDATE_CART_ITEM);
+router.put("/profile", protect, UPDATE_USER_PROFILE);
 
 router.delete("/:id", protect, DELETE_USER);
 

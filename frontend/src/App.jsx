@@ -9,6 +9,7 @@ import ProductPage from "./Pages/ProductPage";
 import AdminDashboard from "./Pages/Admin/AdminDashboard";
 import ManageProducts from "./Pages/Admin/ManageProducts";
 import EditProduct from "./Pages/Admin/EditProduct";
+import Register from "./Pages/Register";
 
 const App = () => {
   return (
@@ -22,6 +23,7 @@ const App = () => {
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="/admin/manage-products" element={<ManageProducts />} />
         <Route path="/admin/edit-product/:id" element={<EditProduct />} />
+        <Route path="/user/register" element={<Register />} />
       </Routes>
 
       {/* <Footer /> */}

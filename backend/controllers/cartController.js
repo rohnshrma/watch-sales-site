@@ -106,7 +106,7 @@ export const CLEAR_CART = async (req, res) => {
   }
 };
 
-const REMOVE_CART_ITEM = async (req, res) => {
+export const REMOVE_CART_ITEM = async (req, res) => {
   try {
     const { productId } = req.params;
     const cart = await Cart.findOne({ user: req.user.id });
