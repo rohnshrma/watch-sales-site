@@ -10,6 +10,12 @@ import AdminDashboard from "./Pages/Admin/AdminDashboard";
 import ManageProducts from "./Pages/Admin/ManageProducts";
 import EditProduct from "./Pages/Admin/EditProduct";
 import Register from "./Pages/Register";
+import Login from "./Pages/Login";
+import ProtectedRoute from "./Components/ProtectedRoute";
+import Cart from "./Pages/Cart";
+import Checkout from "./Pages/Checkout";
+import Orders from "./Pages/Orders";
+import Profile from "./Pages/Profile";
 
 const App = () => {
   return (
@@ -18,12 +24,73 @@ const App = () => {
 
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/add-product" element={<AddProduct />} />
+        <Route
+          path="/add-product"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <AddProduct />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/product/:id" element={<ProductPage />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/manage-products" element={<ManageProducts />} />
-        <Route path="/admin/edit-product/:id" element={<EditProduct />} />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/manage-products"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <ManageProducts />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/edit-product/:id"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <EditProduct />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/user/register" element={<Register />} />
+        <Route path="/user/login" element={<Login />} />
+        <Route
+          path="/cart"
+          element={
+            <ProtectedRoute>
+              <Cart />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/checkout"
+          element={
+            <ProtectedRoute>
+              <Checkout />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/orders"
+          element={
+            <ProtectedRoute>
+              <Orders />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
 
       {/* <Footer /> */}

@@ -1,7 +1,6 @@
 # Watch Sales Frontend
 
-Frontend for the Watch Store project, built with React + Vite.  
-This app displays products, supports admin product management UI, and connects to a backend API for product CRUD.
+Frontend for the Watch Store project, built with React + Vite.
 
 ## Tech Stack
 
@@ -12,6 +11,17 @@ This app displays products, supports admin product management UI, and connects t
 - Axios
 - Bootstrap 4
 
+## Features Implemented
+
+- Product listing, detail, create, edit, delete
+- User register/login/logout with JWT persistence
+- Profile fetch/update
+- Cart integration (add, fetch, update quantity, remove, clear)
+- Checkout and order creation
+- Order history and order cancel (user scope)
+- Route protection for authenticated and admin-only pages
+- Role-aware navbar links
+
 ## Project Structure
 
 ```txt
@@ -21,72 +31,107 @@ src/
   Components/
     Nav.jsx
     ProductCard.jsx
+    ProtectedRoute.jsx
   Pages/
     Home.jsx
     ProductPage.jsx
     AddProduct.jsx
     Register.jsx
+    Login.jsx
+    Cart.jsx
+    Checkout.jsx
+    Orders.jsx
+    Profile.jsx
     Admin/
       AdminDashboard.jsx
       ManageProducts.jsx
       EditProduct.jsx
   context/
+    AuthContext.jsx
     ProductContext.jsx
     CartContext.jsx
+    OrderContext.jsx
+  utils/
+    api.js
 ```
 
-## How It Starts
+## App Boot Flow
 
-1. `src/main.jsx` is the entry point.
-2. It wraps the app with:
-   - `StrictMode`
-   - `BrowserRouter`
-   - `ProductProvider`
-3. Then it renders `App`.
+`src/main.jsx` wraps `App` in:
+
+1. `StrictMode`
+2. `BrowserRouter`
+3. `AuthProvider`
+4. `ProductProvider`
+5. `CartProvider`
+6. `OrderProvider`
 
 ## Routing (`App.jsx`)
 
-`App.jsx` renders `Nav` and defines routes:
+Public routes:
 
 - `/` -> `Home`
-- `/add-product` -> `AddProduct`
 - `/product/:id` -> `ProductPage`
+- `/user/register` -> `Register`
+- `/user/login` -> `Login`
+
+Protected user routes:
+
+- `/cart` -> `Cart`
+- `/checkout` -> `Checkout`
+- `/orders` -> `Orders`
+- `/profile` -> `Profile`
+
+Protected admin routes:
+
+- `/add-product` -> `AddProduct`
 - `/admin/dashboard` -> `AdminDashboard`
 - `/admin/manage-products` -> `ManageProducts`
 - `/admin/edit-product/:id` -> `EditProduct`
-- `/user/register` -> `Register`
 
-## State Management
+## API Configuration
 
-`ProductContext.jsx` provides:
+A shared Axios client is used from `src/utils/api.js`.
 
-- State:
-  - `products`
-  - `product`
-- API functions:
-  - `fetchProducts()`
-  - `fetchProduct(id)`
-  - `addNewProduct(product)`
-  - `editProduct(id, updatedProduct)`
-  - `deleteProduct(id)`
+- Base URL: `VITE_API_BASE_URL`
+- Fallback: `http://localhost:3000`
 
-The context uses `useReducer` with action types:
+Set `.env` in `frontend/` if needed:
 
-- `ADD`
-- `FETCH_PRODUCTS`
-- `FETCH_PRODUCT`
+```env
+VITE_API_BASE_URL=http://localhost:3000
+```
 
-## API Dependency
+## Backend Endpoints Used
 
-The frontend expects backend endpoints at:
+Products:
 
-- `GET http://localhost:3000/api/products`
-- `GET http://localhost:3000/api/products/:id`
-- `POST http://localhost:3000/api/products`
-- `PUT http://localhost:3000/api/products/:id`
-- `DELETE http://localhost:3000/api/products/:id`
+- `GET /api/products`
+- `GET /api/products/:id`
+- `POST /api/products`
+- `PUT /api/products/:id`
+- `DELETE /api/products/:id`
 
-Make sure backend is running before using product features.
+Users:
+
+- `POST /api/users/register`
+- `POST /api/users/login`
+- `GET /api/users/profile` (Bearer token)
+- `PUT /api/users/profile` (Bearer token)
+
+Cart (Bearer token):
+
+- `GET /api/cart`
+- `POST /api/cart`
+- `PUT /api/cart`
+- `DELETE /api/cart/:productId`
+- `DELETE /api/cart/clear`
+
+Orders (Bearer token):
+
+- `POST /api/orders`
+- `GET /api/orders`
+- `PUT /api/orders/:orderId/cancel`
 
 ## Run Locally
 
@@ -102,20 +147,20 @@ Start dev server:
 npm run dev
 ```
 
-Build for production:
+Build production bundle:
 
 ```bash
 npm run build
 ```
 
-Preview production build:
+Lint:
 
 ```bash
-npm run preview
+npm run lint
 ```
 
-## Frontend Flow Document
+## Notes
 
-Detailed flow is documented in:
-
-- `FRONTEND_FLOW.md`
+- Existing CSS was preserved while updating frontend logic.
+- Current admin order/user management is backend-limited by missing list endpoints.
+- Detailed architecture is documented in `FRONTEND_FLOW.md`.

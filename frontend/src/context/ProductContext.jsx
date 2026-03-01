@@ -1,5 +1,5 @@
-import axios from "axios";
-import { act, createContext, useReducer } from "react";
+import { createContext, useReducer } from "react";
+import api from "../utils/api";
 
 const ProductContext = createContext();
 
@@ -33,7 +33,7 @@ export const ProductProvider = ({ children }) => {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get("http://localhost:3000/api/products");
+      const res = await api.get("/api/products");
       console.log("Fetched products:", res.data);
       dispatch({ type: "FETCH_PRODUCTS", payload: res.data.data });
     } catch (err) {
@@ -44,7 +44,7 @@ export const ProductProvider = ({ children }) => {
 
   const fetchProduct = async (id) => {
     try {
-      const res = await axios.get(`http://localhost:3000/api/products/${id}`);
+      const res = await api.get(`/api/products/${id}`);
       console.log("Fetched product:", res.data);
       dispatch({ type: "FETCH_PRODUCT", payload: res.data.data });
     } catch (err) {
@@ -55,9 +55,7 @@ export const ProductProvider = ({ children }) => {
 
   const deleteProduct = async (id) => {
     try {
-      const res = await axios.delete(
-        `http://localhost:3000/api/products/${id}`
-      );
+      const res = await api.delete(`/api/products/${id}`);
       console.log("Product Deleted:", res.data);
       await fetchProducts();
       console.log("success");
@@ -69,10 +67,7 @@ export const ProductProvider = ({ children }) => {
 
   const editProduct = async (id, updatedProduct) => {
     try {
-      const res = await axios.put(
-        `http://localhost:3000/api/products/${id}`,
-        updatedProduct
-      );
+      const res = await api.put(`/api/products/${id}`, updatedProduct);
       console.log("Updated", res.data);
       await fetchProducts();
       return res.data;
@@ -87,10 +82,7 @@ export const ProductProvider = ({ children }) => {
   const addNewProduct = async (product) => {
     try {
       console.log("Sending product data:", product);
-      const res = await axios.post(
-        "http://localhost:3000/api/products",
-        product
-      );
+      const res = await api.post("/api/products", product);
       console.log("Response:", res);
       dispatch({ type: "ADD", payload: res.data.data });
       return res.data;

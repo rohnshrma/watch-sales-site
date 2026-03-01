@@ -1,11 +1,29 @@
 import React, { useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import ProductContext from "../context/ProductContext";
+import CartContext from "../context/CartContext";
+import AuthContext from "../context/AuthContext";
 
 const ProductCard = ({ product, isAdmin }) => {
   const navigate = useNavigate();
 
   const { deleteProduct } = useContext(ProductContext);
+  const { addProductToCart } = useContext(CartContext);
+  const { isAuthenticated } = useContext(AuthContext);
+
+  const addToCartHandler = async () => {
+    if (!isAuthenticated) {
+      navigate("/user/login");
+      return;
+    }
+
+    try {
+      await addProductToCart(product._id, 1);
+      alert("Added to cart!");
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to add item to cart");
+    }
+  };
 
   return (
     <div className="col-lg-4 col-md-6 mb-4">
@@ -70,7 +88,9 @@ const ProductCard = ({ product, isAdmin }) => {
                   </button>
                 </>
               ) : (
-                <button className="add-to-cart-btn">Add to cart</button>
+                <button className="add-to-cart-btn" onClick={addToCartHandler}>
+                  Add to cart
+                </button>
               )}
             </div>
           </div>

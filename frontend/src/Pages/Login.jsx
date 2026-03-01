@@ -1,20 +1,32 @@
-import React, { useContext, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useContext, useReducer, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import AuthContext from "../context/AuthContext";
 
-const Register = () => {
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    password: "",
-  });
+const initialState = {
+  email: "",
+  password: "",
+};
+
+const loginReducer = (state, action) => {
+  if (action.type === "email" || action.type === "password") {
+    return {
+      ...state,
+      [action.type]: action.payload,
+    };
+  }
+  return state;
+};
+
+const Login = () => {
+  const [state, dispatch] = useReducer(loginReducer, initialState);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { register } = useContext(AuthContext);
+  const { login } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const changeHandler = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    dispatch({ type: e.target.name, payload: e.target.value });
     if (error) setError("");
   };
 
@@ -23,31 +35,23 @@ const Register = () => {
     setError("");
     setLoading(true);
     try {
-      await register(form);
-      navigate("/");
+      const res = await login(state);
+      const redirectPath =
+        location.state?.from?.pathname ||
+        (res.data.role === "admin" ? "/admin/dashboard" : "/");
+      navigate(redirectPath);
     } catch (err) {
-      setError(err.response?.data?.message || "Registration failed");
+      setError(err.response?.data?.message || "Login failed");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="register container mt-5 ">
-      <h2 className="mb-4">Register</h2>
+    <div className="register container mt-5">
+      <h2 className="mb-4">Login</h2>
       {error ? <div className="alert alert-danger">{error}</div> : null}
       <form onSubmit={submitHandler}>
-        <div className="form-group">
-          <input
-            className="form-control"
-            type="text"
-            name="name"
-            placeholder="Enter full name"
-            onChange={changeHandler}
-            value={form.name}
-            required
-          />
-        </div>
         <div className="form-group">
           <input
             className="form-control"
@@ -55,7 +59,7 @@ const Register = () => {
             name="email"
             placeholder="Enter email address"
             onChange={changeHandler}
-            value={form.email}
+            value={state.email}
             required
           />
         </div>
@@ -66,19 +70,19 @@ const Register = () => {
             name="password"
             placeholder="Enter password"
             onChange={changeHandler}
-            value={form.password}
+            value={state.password}
             required
           />
         </div>
         <button className="btn btn-success" disabled={loading}>
-          {loading ? "Registering..." : "REGISTER"}
+          {loading ? "Logging in..." : "LOGIN"}
         </button>
       </form>
       <p className="mt-3">
-        Already have an account? <Link to="/user/login">Login</Link>
+        New user? <Link to="/user/register">Create an account</Link>
       </p>
     </div>
   );
 };
 
-export default Register;
+export default Login;

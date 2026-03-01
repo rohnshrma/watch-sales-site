@@ -1,68 +1,93 @@
 # Frontend Flow Documentation
 
-This document explains how this frontend works, especially `main.jsx`, `App.jsx`, and the component/page flow.
+This document describes the current frontend flow after backend integration updates.
 
 ## 1) Entry Point: `src/main.jsx`
 
-`main.jsx` is responsible for bootstrapping React and wrapping global providers.
+`main.jsx` bootstraps React and wraps the app in providers.
 
-Order of wrappers:
+Provider order:
 
-1. `StrictMode` for development checks.
-2. `BrowserRouter` (aliased as `Router`) for route handling.
-3. `ProductProvider` for product state and API actions.
-4. `App` as the root UI component.
+1. `StrictMode`
+2. `BrowserRouter`
+3. `AuthProvider`
+4. `ProductProvider`
+5. `CartProvider`
+6. `OrderProvider`
+7. `App`
 
-Flow:
+Flow: `index.html` -> `main.jsx` -> providers -> `App.jsx`
 
-`index.html` -> `main.jsx` -> providers -> `App.jsx`
+## 2) Root Routing: `src/App.jsx`
 
-## 2) Root App Layer: `src/App.jsx`
+`App.jsx` always renders `Nav` and maps routes.
 
-`App.jsx` defines global layout and route mapping.
-
-What it does:
-
-1. Always renders `Nav` at the top.
-2. Uses `Routes` and `Route` from React Router.
-3. Maps URL paths to page components.
-
-Routes configured:
+Public:
 
 - `/` -> `Home`
-- `/add-product` -> `AddProduct`
 - `/product/:id` -> `ProductPage`
+- `/user/register` -> `Register`
+- `/user/login` -> `Login`
+
+Protected (authenticated):
+
+- `/cart` -> `Cart`
+- `/checkout` -> `Checkout`
+- `/orders` -> `Orders`
+- `/profile` -> `Profile`
+
+Protected (admin):
+
+- `/add-product` -> `AddProduct`
 - `/admin/dashboard` -> `AdminDashboard`
 - `/admin/manage-products` -> `ManageProducts`
 - `/admin/edit-product/:id` -> `EditProduct`
-- `/user/register` -> `Register`
 
-## 3) Navigation Flow: `src/Components/Nav.jsx`
+Protection is enforced by `Components/ProtectedRoute.jsx`.
 
-`Nav` provides primary links to:
+## 3) API Layer: `src/utils/api.js`
 
-- Home
-- Add Product
-- Admin Dashboard
+A shared Axios client is used across contexts.
 
-Each link updates route state without a full page reload via React Router `Link`.
+- `baseURL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"`
 
-## 4) Data Layer Flow: `src/context/ProductContext.jsx`
+This removes hardcoded URLs from each context/page.
 
-`ProductContext` is the core state layer for products.
+## 4) Auth Flow: `src/context/AuthContext.jsx`
 
-State managed:
+State:
 
-- `products` (list view data)
-- `product` (single product detail)
+- `user`
+- `token`
+- `isLoading`
 
-Reducer actions:
+Capabilities:
 
-- `FETCH_PRODUCTS`: replace product list.
-- `FETCH_PRODUCT`: set selected product.
-- `ADD`: prepend newly created product in state.
+- `register(payload)` -> `POST /api/users/register`
+- `login(payload)` -> `POST /api/users/login`
+- `logout()` -> clears state/localStorage
+- `fetchProfile()` -> `GET /api/users/profile`
+- `updateProfile(payload)` -> `PUT /api/users/profile`
 
-API methods exposed by context:
+Persistence:
+
+- Stores auth payload in localStorage key `watchStoreAuth`.
+- Exposes `authHeaders` with `Authorization: Bearer <token>`.
+
+## 5) Product Flow: `src/context/ProductContext.jsx`
+
+State:
+
+- `products`
+- `product`
+
+Actions:
+
+- `FETCH_PRODUCTS`
+- `FETCH_PRODUCT`
+- `ADD`
+
+API methods:
 
 - `fetchProducts()` -> `GET /api/products`
 - `fetchProduct(id)` -> `GET /api/products/:id`
@@ -70,94 +95,119 @@ API methods exposed by context:
 - `editProduct(id, updatedProduct)` -> `PUT /api/products/:id`
 - `deleteProduct(id)` -> `DELETE /api/products/:id`
 
-All product pages and admin pages consume these methods through `useContext(ProductContext)`.
+Used by home/product/admin product pages.
 
-## 5) Page-Level Flow
+## 6) Cart Flow: `src/context/CartContext.jsx`
+
+State:
+
+- `cartItems`
+- `total`
+- `loading`
+
+Reducer actions:
+
+- `SET_LOADING`
+- `SET_CART`
+- `RESET_CART`
+
+API methods (protected):
+
+- `fetchCart()` -> `GET /api/cart`
+- `addProductToCart(productId, quantity)` -> `POST /api/cart`
+- `updateCartItem(productId, quantity)` -> `PUT /api/cart`
+- `removeCartItem(productId)` -> `DELETE /api/cart/:productId`
+- `clearCart()` -> `DELETE /api/cart/clear`
+
+Sync behavior:
+
+- On login/auth availability, cart is fetched.
+- On logout, cart state is reset.
+
+## 7) Order Flow: `src/context/OrderContext.jsx`
+
+State:
+
+- `orders`
+- `loading`
+
+API methods (protected):
+
+- `fetchOrders()` -> `GET /api/orders`
+- `createOrder(payload)` -> `POST /api/orders`
+- `cancelOrder(orderId)` -> `PUT /api/orders/:orderId/cancel`
+
+## 8) Key Page Flows
 
 ### `Home.jsx`
 
-1. On mount, calls `fetchProducts()`.
-2. Shows loading spinner while waiting.
-3. Renders product grid using `ProductCard`.
-4. Empty-state UI if no products returned.
+1. Calls `fetchProducts()` on mount.
+2. Renders loading, empty, or product grid state.
 
 ### `ProductPage.jsx`
 
-1. Reads `id` from route params.
-2. Calls `fetchProduct(id)` on mount/id change.
-3. Displays selected product from context state.
+1. Reads `id` from params.
+2. Calls `fetchProduct(id)`.
+3. Add-to-cart calls cart context; redirects to login if unauthenticated.
 
-### `AddProduct.jsx`
+### `Register.jsx` / `Login.jsx`
 
-1. Uses local `useReducer` for form state.
-2. Validates form input.
-3. Calls `addNewProduct(product)` on submit.
-4. Refetches product list for sync.
-5. Shows success/error messages.
+- Submit auth payload to backend via `AuthContext`.
+- Handle loading and backend errors.
+- Redirect after successful auth.
 
-### `AdminDashboard.jsx`
+### `Cart.jsx`
 
-Displays admin cards and navigates to Manage Products when products card is clicked.
+- Displays cart items and totals.
+- Supports quantity update, remove, clear cart.
+- Proceeds to `/checkout`.
 
-### `ManageProducts.jsx`
+### `Checkout.jsx`
 
-1. Calls `fetchProducts()` on mount.
-2. Displays products using `ProductCard` with `isAdmin={true}`.
-3. Admin mode enables Delete and Edit actions.
+- Collects full shipping address + payment method.
+- Calls `createOrder()`.
+- Redirects to `/orders` with created order info.
 
-### `EditProduct.jsx`
+### `Orders.jsx`
 
-1. Reads `id` from route params.
-2. Loads existing product from context list.
-3. Pre-fills local form reducer state.
-4. Validates and sends update through `editProduct(id, product)`.
-5. Refetches products after update.
+- Loads order history on mount.
+- Displays status, payment status, totals, and order items.
+- Allows cancellation where backend rules permit.
 
-### `Register.jsx`
+### `Profile.jsx`
 
-Contains register form state handling via `useReducer`, but no backend submit integration yet.
+- Loads profile from context/backend.
+- Updates name/email/password using protected profile endpoint.
 
-## 6) Reusable Component Flow
+### Admin Pages
 
-### `ProductCard.jsx`
+- `AdminDashboard.jsx`: summary cards and navigation.
+- `ManageProducts.jsx`: lists all products in admin mode.
+- `EditProduct.jsx`: loads, edits, and updates product.
+- `AddProduct.jsx`: validates and creates product.
 
-Input props:
+## 9) Navbar Behavior: `src/Components/Nav.jsx`
 
-- `product`
-- `isAdmin` (optional)
+Unauthenticated:
 
-Behavior:
+- Home
+- Login
+- Register
 
-- Clicking product image navigates to `/product/:id`.
-- Normal mode: shows `Add to cart` button.
-- Admin mode:
-  - `Delete` triggers `deleteProduct(product._id)`.
-  - `Edit` navigates to `/admin/edit-product/:id`.
+Authenticated:
 
-## 7) Context and Routing Together
+- Home
+- Cart (with item count)
+- Orders
+- Profile
+- Logout
 
-End-to-end request flow for listing products:
+Admin additional links:
 
-1. User visits `/`.
-2. `App.jsx` renders `Home`.
-3. `Home` calls `fetchProducts()` from `ProductContext`.
-4. Context makes Axios call to backend.
-5. Reducer stores product list.
-6. `Home` re-renders and maps list to `ProductCard`.
+- Add Product
+- Admin Dashboard
 
-Flow for editing a product:
+## 10) Current Backend-Limited Gaps
 
-1. User opens `/admin/manage-products`.
-2. Clicks `Edit` on a `ProductCard`.
-3. Router navigates to `/admin/edit-product/:id`.
-4. `EditProduct` loads selected product data.
-5. Submit calls context `editProduct`.
-6. Backend updates record.
-7. Frontend refetches and re-renders updated list.
-
-## 8) Current Gaps / Notes
-
-- `CartContext.jsx` is scaffolded but reducer logic is not implemented.
-- `Register.jsx` does not call any API yet.
-- Backend URL is hardcoded to `http://localhost:3000` in context methods.
-
+- Full admin orders management UI is limited by absence of a backend "list all orders" endpoint.
+- Full admin users management UI is limited by absence of a backend "list all users" endpoint.
