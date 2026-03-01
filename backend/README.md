@@ -67,6 +67,8 @@ Authorization: Bearer <token>
 ```
 Token is returned from register/login.
 
+Admin-only routes also require a valid token where `req.user.role === "admin"`.
+
 ## API Routes
 
 ### Product Routes (`/api/products`)
@@ -88,11 +90,14 @@ Token is returned from register/login.
 - `POST /login` -> Login user
 - `GET /profile` (Protected) -> Get profile
 - `PUT /profile` (Protected) -> Update profile
-- `DELETE /:id` (Protected) -> Delete user by id
+- `DELETE /:id` (Protected) -> Delete user by id (self or admin)
 
 ### Order Routes (`/api/orders`) (Protected)
 - `POST /` -> Create order from current cart
 - `GET /` -> Get logged-in user orders
+- `GET /:orderId` -> Get one order (owner or admin)
+- `PUT /:orderId/cancel` -> Cancel order (owner or admin; blocked for shipped/delivered/cancelled)
+- `PUT /:orderId/status` (Admin) -> Update order `status` and/or `paymentStatus`
 
 ## Request Body Examples
 
@@ -117,7 +122,7 @@ Token is returned from register/login.
 ```json
 {
   "name": "Omega Speedmaster",
-  "price": "4999",
+  "price": 4999,
   "description": "Chronograph watch with sapphire crystal and steel case.",
   "imageUrl": "https://example.com/watch.jpg"
 }
@@ -145,6 +150,14 @@ Token is returned from register/login.
 }
 ```
 
+### Update Order Status (Admin)
+```json
+{
+  "status": "shipped",
+  "paymentStatus": "completed"
+}
+```
+
 ## Response Format
 Most endpoints return:
 ```json
@@ -155,7 +168,15 @@ Most endpoints return:
 }
 ```
 
+## Important Validation/Behavior Notes
+- Product `price` is numeric in DB.
+- Cart quantity rules:
+  - `POST /api/cart`: `quantity` must be a positive integer.
+  - `PUT /api/cart`: `quantity` must be a non-negative integer (`0` removes item).
+- Creating an order requires complete shipping address:
+  - `street`, `city`, `state`, `zipCode`, `country`
+- After successful order creation, cart is automatically cleared.
+
 ## Detailed Flow Doc
 For a detailed explanation of server startup, route flow, and each controller/model, see:
 - `BACKEND_FLOW.md`
-

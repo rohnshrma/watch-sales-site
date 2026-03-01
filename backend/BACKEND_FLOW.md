@@ -34,6 +34,7 @@ This document explains how requests move through the backend and what each serve
 4. Loads user by decoded id and attaches to `req.user` (without password).
 5. Calls `next()` for valid tokens.
 6. Returns `401` for invalid/missing token.
+7. `isAdmin` middleware checks `req.user.role === "admin"` and returns `403` for non-admin users.
 
 ## 4) Route -> Controller Mapping
 
@@ -61,6 +62,9 @@ This document explains how requests move through the backend and what each serve
 ## Order (`routes/orderRoutes.js`) [Protected]
 - `POST /api/orders` -> `CREATE_ORDER`
 - `GET /api/orders` -> `GET_USER_ORDERS`
+- `GET /api/orders/:orderId` -> `GET_ORDER_BY_ID`
+- `PUT /api/orders/:orderId/cancel` -> `CANCEL_ORDER`
+- `PUT /api/orders/:orderId/status` -> `UPDATE_ORDER_STATUS` (admin-only via `isAdmin`)
 
 ## 5) Controller Responsibilities
 
@@ -73,6 +77,7 @@ This document explains how requests move through the backend and what each serve
 
 ## Cart Controller (`controllers/cartController.js`)
 - `ADD_TO_CART`:
+  - Validates `productId` and positive integer `quantity`.
   - Validates product exists.
   - Finds or creates user cart.
   - Increments quantity if item exists; otherwise pushes new item snapshot.
@@ -81,19 +86,24 @@ This document explains how requests move through the backend and what each serve
   - Returns user cart if found.
   - Returns empty cart shape if not found.
 - `UPDATE_CART_ITEM`:
+  - Validates `productId` and non-negative integer `quantity`.
   - Finds cart and item by `productId`.
   - Updates quantity and recalculates total.
+  - If `quantity = 0`, removes the item from cart.
 - `REMOVE_CART_ITEM`:
   - Removes item by product id and recalculates total.
 - `CLEAR_CART`:
   - Empties all cart items and resets total.
+  - If cart does not exist, returns `Cart already empty`.
 
 ## User Controller (`controllers/userController.js`)
 - `REGISTER`:
+  - Validates required fields.
   - Checks duplicate email.
   - Creates user.
   - Returns user info + JWT token.
 - `LOGIN`:
+  - Validates required fields.
   - Finds user by email.
   - Validates password via `matchPassword`.
   - Returns user info + JWT token.
@@ -101,13 +111,16 @@ This document explains how requests move through the backend and what each serve
   - Returns authenticated user's profile (without password).
 - `UPDATE_USER_PROFILE`:
   - Updates authenticated user's name/email/password.
+  - Checks email uniqueness before update.
   - Returns updated user data + new token.
 - `DELETE_USER`:
   - Deletes user by id.
+  - Authorization: user can delete self, admin can delete any user.
 
 ## Order Controller (`controllers/orderController.js`)
 - `CREATE_ORDER`:
   - Validates `shippingAddress` and `paymentMethod`.
+  - Requires complete shipping address (`street`, `city`, `state`, `zipCode`, `country`).
   - Loads current user cart.
   - If cart has items, creates order using cart snapshot.
   - Clears cart after successful order creation.
@@ -115,6 +128,15 @@ This document explains how requests move through the backend and what each serve
   - Returns all logged-in user's orders.
   - Populates `orderItems.product`.
   - Sorts newest first.
+- `GET_ORDER_BY_ID`:
+  - Fetches order by id with populated user/product info.
+  - Only owner or admin can view.
+- `CANCEL_ORDER`:
+  - Only owner or admin can cancel.
+  - Prevents cancellation once status is `shipped`, `delivered`, or already `cancelled`.
+- `UPDATE_ORDER_STATUS` (Admin):
+  - Updates `status` and/or `paymentStatus`.
+  - Validates enum values before save.
 
 ## 6) Model Design
 
@@ -122,21 +144,27 @@ This document explains how requests move through the backend and what each serve
 - Fields: `name`, `price`, `description`, `imageUrl`.
 - Constraints:
   - `name` unique, required, min length 5.
-  - `price` stored as string.
+  - `price` stored as number, minimum `0`.
   - `description` min length 20.
+  - timestamps enabled.
 
 ## User Model (`models/user.js`)
 - Fields: `name`, `email`, `password`, `role`.
 - `role` enum: `user | admin`.
 - `matchPassword` method compares plaintext vs hash.
-- Includes pre-save password hashing hook.
+- Includes pre-save password hashing hook (`function` context for correct `this`).
 
 ## Cart Model (`models/cart.js`)
 - One cart per user (`user` unique).
 - `cartItems[]` includes:
   - `product` ref
   - item snapshot fields (`name`, `imageUrl`, `price`, `quantity`)
+- cart item validations:
+  - `name`, `imageUrl`, `price` are required
+  - `price >= 0`
+  - `quantity >= 1`
 - `total` stores cart amount.
+- `total >= 0`.
 
 ## Order Model (`models/order.js`)
 - Linked to `user`.
@@ -157,6 +185,5 @@ This document explains how requests move through the backend and what each serve
 ## 8) Notes for Current Implementation
 - Cart and order routes are protected at mount level in `server.js`.
 - User `profile` routes are additionally protected at route level.
+- Order admin status route is protected by `isAdmin` middleware.
 - Error handling is inline inside each controller.
-- Some response status codes/messages are not fully REST-consistent (for example, fetch endpoints returning `201` in product controller).
-
