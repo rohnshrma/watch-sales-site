@@ -1,16 +1,121 @@
-# React + Vite
+# Watch Sales Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend for the Watch Store project, built with React + Vite.  
+This app displays products, supports admin product management UI, and connects to a backend API for product CRUD.
 
-Currently, two official plugins are available:
+## Tech Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- React 19
+- Vite
+- React Router DOM
+- Context API + `useReducer`
+- Axios
+- Bootstrap 4
 
-## React Compiler
+## Project Structure
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```txt
+src/
+  main.jsx
+  App.jsx
+  Components/
+    Nav.jsx
+    ProductCard.jsx
+  Pages/
+    Home.jsx
+    ProductPage.jsx
+    AddProduct.jsx
+    Register.jsx
+    Admin/
+      AdminDashboard.jsx
+      ManageProducts.jsx
+      EditProduct.jsx
+  context/
+    ProductContext.jsx
+    CartContext.jsx
+```
 
-## Expanding the ESLint configuration
+## How It Starts
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1. `src/main.jsx` is the entry point.
+2. It wraps the app with:
+   - `StrictMode`
+   - `BrowserRouter`
+   - `ProductProvider`
+3. Then it renders `App`.
+
+## Routing (`App.jsx`)
+
+`App.jsx` renders `Nav` and defines routes:
+
+- `/` -> `Home`
+- `/add-product` -> `AddProduct`
+- `/product/:id` -> `ProductPage`
+- `/admin/dashboard` -> `AdminDashboard`
+- `/admin/manage-products` -> `ManageProducts`
+- `/admin/edit-product/:id` -> `EditProduct`
+- `/user/register` -> `Register`
+
+## State Management
+
+`ProductContext.jsx` provides:
+
+- State:
+  - `products`
+  - `product`
+- API functions:
+  - `fetchProducts()`
+  - `fetchProduct(id)`
+  - `addNewProduct(product)`
+  - `editProduct(id, updatedProduct)`
+  - `deleteProduct(id)`
+
+The context uses `useReducer` with action types:
+
+- `ADD`
+- `FETCH_PRODUCTS`
+- `FETCH_PRODUCT`
+
+## API Dependency
+
+The frontend expects backend endpoints at:
+
+- `GET http://localhost:3000/api/products`
+- `GET http://localhost:3000/api/products/:id`
+- `POST http://localhost:3000/api/products`
+- `PUT http://localhost:3000/api/products/:id`
+- `DELETE http://localhost:3000/api/products/:id`
+
+Make sure backend is running before using product features.
+
+## Run Locally
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start dev server:
+
+```bash
+npm run dev
+```
+
+Build for production:
+
+```bash
+npm run build
+```
+
+Preview production build:
+
+```bash
+npm run preview
+```
+
+## Frontend Flow Document
+
+Detailed flow is documented in:
+
+- `FRONTEND_FLOW.md`
