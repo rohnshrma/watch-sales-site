@@ -1,189 +1,103 @@
-# Backend Flow Explanation
+# Backend Flow Explanation (Cart Brand Scope)
 
-This document explains how requests move through the backend and what each server, route, controller, and model does.
+This document explains the current backend flow for the cart-brand scope.
 
 ## 1) Server Boot Flow (`server.js`)
-1. Environment variables are loaded using `dotenv`.
-2. MongoDB connection is initialized with `connectDB()` from `config/db.js`.
-3. Express app is created and middleware is attached:
+1. Loads environment variables via `dotenv`.
+2. Connects MongoDB with `connectDB()`.
+3. Creates an Express app.
+4. Attaches middleware:
    - `cors()` for cross-origin requests.
    - `express.json()` for JSON body parsing.
    - `morgan("dev")` for request logging.
-4. Route groups are mounted:
-   - `/api/products` -> product routes (public)
-   - `/api/cart` -> cart routes (protected with `protect`)
-   - `/api/orders` -> order routes (protected with `protect`)
-   - `/api/users` -> user routes (mixed public/protected)
-5. Server starts on `process.env.PORT || 3000`.
+5. Mounts route groups:
+   - `/api/products` -> product routes
+   - `/api/cart` -> cart routes
+6. Starts server on `process.env.PORT || 3000`.
 
 ## 2) Database Connection (`config/db.js`)
 - Uses `mongoose.connect(process.env.MONGO_URI)`.
-- On success, prints DB host.
-- On failure, logs error and exits process.
+- Logs connected DB host on success.
+- Logs error and exits process on failure.
 
-## 3) Auth Flow
+## 3) Route -> Controller Mapping
 
-### JWT Generation (`utils/generateToken.js`)
-- `generateToken(id)` signs `{ id }` with `JWT_SECRET`.
-- Token expiry: `30d`.
-
-### Auth Middleware (`middlewares/authMiddleware.js`)
-1. Reads `Authorization` header.
-2. Expects `Bearer <token>`.
-3. Verifies token with `JWT_SECRET`.
-4. Loads user by decoded id and attaches to `req.user` (without password).
-5. Calls `next()` for valid tokens.
-6. Returns `401` for invalid/missing token.
-7. `isAdmin` middleware checks `req.user.role === "admin"` and returns `403` for non-admin users.
-
-## 4) Route -> Controller Mapping
-
-## Product (`routes/productRoutes.js`)
+### Product (`routes/productRoutes.js`)
 - `GET /api/products` -> `GET_PRODUCTS`
 - `POST /api/products` -> `ADD_PRODUCT`
 - `GET /api/products/:id` -> `GET_SINGLE_PRODUCT`
 - `PUT /api/products/:id` -> `EDIT_PRODUCT`
 - `DELETE /api/products/:id` -> `DELETE_PRODUCT`
 
-## Cart (`routes/cartRoutes.js`) [Protected]
+### Cart (`routes/cartRoutes.js`)
 - `POST /api/cart` -> `ADD_TO_CART`
 - `GET /api/cart` -> `GET_USER_CART`
 - `PUT /api/cart` -> `UPDATE_CART_ITEM`
 - `DELETE /api/cart/clear` -> `CLEAR_CART`
 - `DELETE /api/cart/:productId` -> `REMOVE_CART_ITEM`
 
-## User (`routes/userRoutes.js`)
-- `POST /api/users/register` -> `REGISTER`
-- `POST /api/users/login` -> `LOGIN`
-- `GET /api/users/profile` -> `GET_USER_PROFILE` (protected)
-- `PUT /api/users/profile` -> `UPDATE_USER_PROFILE` (protected)
-- `DELETE /api/users/:id` -> `DELETE_USER` (protected)
-
-## Order (`routes/orderRoutes.js`) [Protected]
-- `POST /api/orders` -> `CREATE_ORDER`
-- `GET /api/orders` -> `GET_USER_ORDERS`
-- `GET /api/orders/:orderId` -> `GET_ORDER_BY_ID`
-- `PUT /api/orders/:orderId/cancel` -> `CANCEL_ORDER`
-- `PUT /api/orders/:orderId/status` -> `UPDATE_ORDER_STATUS` (admin-only via `isAdmin`)
+## 4) Cart Identity Model (No Auth)
+- Cart ownership is based on `x-cart-id` request header.
+- Backend expects every cart request to include `x-cart-id`.
+- Cart document stores `cartId` (string, unique).
 
 ## 5) Controller Responsibilities
 
-## Product Controller (`controllers/productController.js`)
+### Product Controller (`controllers/productController.js`)
 - `GET_PRODUCTS`: Fetches all products.
 - `ADD_PRODUCT`: Validates required fields and creates a product.
 - `GET_SINGLE_PRODUCT`: Finds one product by id.
 - `DELETE_PRODUCT`: Checks product existence and deletes it.
 - `EDIT_PRODUCT`: Updates product fields partially and saves.
 
-## Cart Controller (`controllers/cartController.js`)
+### Cart Controller (`controllers/cartController.js`)
 - `ADD_TO_CART`:
-  - Validates `productId` and positive integer `quantity`.
-  - Validates product exists.
-  - Finds or creates user cart.
-  - Increments quantity if item exists; otherwise pushes new item snapshot.
-  - Recalculates `total`.
+  - Validates `x-cart-id`, `productId`, and positive integer `quantity`.
+  - Confirms product exists.
+  - Loads or creates cart by `cartId`.
+  - Increments quantity if item exists, else pushes a new snapshot item.
+  - Recalculates total and saves.
 - `GET_USER_CART`:
-  - Returns user cart if found.
+  - Validates `x-cart-id`.
+  - Returns cart if found.
   - Returns empty cart shape if not found.
 - `UPDATE_CART_ITEM`:
-  - Validates `productId` and non-negative integer `quantity`.
-  - Finds cart and item by `productId`.
-  - Updates quantity and recalculates total.
-  - If `quantity = 0`, removes the item from cart.
+  - Validates `x-cart-id`, `productId`, and non-negative integer `quantity`.
+  - Updates item quantity or removes item when quantity is `0`.
+  - Recalculates total.
 - `REMOVE_CART_ITEM`:
-  - Removes item by product id and recalculates total.
+  - Validates `x-cart-id`.
+  - Removes one item by `productId`.
+  - Recalculates total.
 - `CLEAR_CART`:
-  - Empties all cart items and resets total.
-  - If cart does not exist, returns `Cart already empty`.
-
-## User Controller (`controllers/userController.js`)
-- `REGISTER`:
-  - Validates required fields.
-  - Checks duplicate email.
-  - Creates user.
-  - Returns user info + JWT token.
-- `LOGIN`:
-  - Validates required fields.
-  - Finds user by email.
-  - Validates password via `matchPassword`.
-  - Returns user info + JWT token.
-- `GET_USER_PROFILE`:
-  - Returns authenticated user's profile (without password).
-- `UPDATE_USER_PROFILE`:
-  - Updates authenticated user's name/email/password.
-  - Checks email uniqueness before update.
-  - Returns updated user data + new token.
-- `DELETE_USER`:
-  - Deletes user by id.
-  - Authorization: user can delete self, admin can delete any user.
-
-## Order Controller (`controllers/orderController.js`)
-- `CREATE_ORDER`:
-  - Validates `shippingAddress` and `paymentMethod`.
-  - Requires complete shipping address (`street`, `city`, `state`, `zipCode`, `country`).
-  - Loads current user cart.
-  - If cart has items, creates order using cart snapshot.
-  - Clears cart after successful order creation.
-- `GET_USER_ORDERS`:
-  - Returns all logged-in user's orders.
-  - Populates `orderItems.product`.
-  - Sorts newest first.
-- `GET_ORDER_BY_ID`:
-  - Fetches order by id with populated user/product info.
-  - Only owner or admin can view.
-- `CANCEL_ORDER`:
-  - Only owner or admin can cancel.
-  - Prevents cancellation once status is `shipped`, `delivered`, or already `cancelled`.
-- `UPDATE_ORDER_STATUS` (Admin):
-  - Updates `status` and/or `paymentStatus`.
-  - Validates enum values before save.
+  - Validates `x-cart-id`.
+  - Empties all items and resets total.
 
 ## 6) Model Design
 
-## Product Model (`models/product.js`)
+### Product Model (`models/product.js`)
 - Fields: `name`, `price`, `description`, `imageUrl`.
 - Constraints:
   - `name` unique, required, min length 5.
-  - `price` stored as number, minimum `0`.
-  - `description` min length 20.
+  - `price` is number, minimum `0`.
+  - `description` required, min length 20.
   - timestamps enabled.
 
-## User Model (`models/user.js`)
-- Fields: `name`, `email`, `password`, `role`.
-- `role` enum: `user | admin`.
-- `matchPassword` method compares plaintext vs hash.
-- Includes pre-save password hashing hook (`function` context for correct `this`).
-
-## Cart Model (`models/cart.js`)
-- One cart per user (`user` unique).
+### Cart Model (`models/cart.js`)
+- One cart per `cartId` (unique string).
 - `cartItems[]` includes:
   - `product` ref
-  - item snapshot fields (`name`, `imageUrl`, `price`, `quantity`)
-- cart item validations:
-  - `name`, `imageUrl`, `price` are required
-  - `price >= 0`
-  - `quantity >= 1`
-- `total` stores cart amount.
-- `total >= 0`.
-
-## Order Model (`models/order.js`)
-- Linked to `user`.
-- `orderItems[]` stores copied cart item snapshot.
-- `shippingAddress` object.
-- `total`, `paymentMethod`, `paymentStatus`, `status`.
-- Timestamps enabled.
+  - `name`, `imageUrl`, `price`, `quantity` snapshot values
+- `total` stores computed cart amount.
 
 ## 7) End-to-End Lifecycle
-1. User registers or logs in and gets JWT token.
-2. User fetches products.
-3. User adds products to cart (`/api/cart` with token).
-4. User can update/remove/clear cart.
-5. User creates order (`/api/orders`) with shipping + payment method.
-6. Backend copies cart items to order, sets statuses to pending, clears cart.
-7. User fetches order history from `/api/orders`.
+1. Client fetches products from `/api/products`.
+2. Client creates/uses a persistent `x-cart-id`.
+3. Client calls `/api/cart` endpoints with `x-cart-id`.
+4. Backend stores and updates cart by `cartId`.
 
-## 8) Notes for Current Implementation
-- Cart and order routes are protected at mount level in `server.js`.
-- User `profile` routes are additionally protected at route level.
-- Order admin status route is protected by `isAdmin` middleware.
-- Error handling is inline inside each controller.
+## 8) Out of Scope (Removed)
+- User registration/login/profile
+- JWT authentication
+- Order creation/history/cancellation
+- Payment methods/status

@@ -1,25 +1,35 @@
+// React hooks for context data, local error state, and navigation action.
 import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import CartContext from "../context/CartContext";
 
+// Cart page to view and manage items currently in cart.
 const Cart = () => {
+  // Pull cart data and cart actions from context.
   const { cartItems, total, updateCartItem, removeCartItem, clearCart, loading } =
     useContext(CartContext);
+  // Error message state for failed cart operations.
   const [error, setError] = useState("");
+  // Navigation helper for CTA links.
   const navigate = useNavigate();
 
+  // Handles both populated and populated-reference product shapes.
   const getProductId = (item) =>
     typeof item.product === "string" ? item.product : item.product?._id;
 
+  // Update item quantity with basic numeric guard.
   const updateQuantity = async (productId, quantity) => {
+    const safeQuantity = Number(quantity);
+    if (!Number.isFinite(safeQuantity) || safeQuantity < 1) return;
     setError("");
     try {
-      await updateCartItem(productId, Number(quantity));
+      await updateCartItem(productId, safeQuantity);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to update item");
     }
   };
 
+  // Remove one item from cart.
   const removeItem = async (productId) => {
     setError("");
     try {
@@ -29,6 +39,7 @@ const Cart = () => {
     }
   };
 
+  // Clear all cart items.
   const clearAll = async () => {
     setError("");
     try {
@@ -38,71 +49,139 @@ const Cart = () => {
     }
   };
 
+  // Increment current item quantity by one.
+  const incrementQuantity = (item) => {
+    updateQuantity(getProductId(item), Number(item.quantity) + 1);
+  };
+
+  // Decrement current item quantity but never below one.
+  const decrementQuantity = (item) => {
+    const nextQuantity = Number(item.quantity) - 1;
+    if (nextQuantity < 1) return;
+    updateQuantity(getProductId(item), nextQuantity);
+  };
+
+  // Sum all quantities to display total units in summary panel.
+  const itemCount = cartItems.reduce((count, item) => count + Number(item.quantity), 0);
+
   return (
-    <div className="container mt-5">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>Your Cart</h2>
-        <button className="btn btn-outline-danger" onClick={clearAll}>
+    <div className="lux-shell lux-page">
+      <section className="lux-page-head">
+        <h2 className="lux-title">Your Cart</h2>
+        <button className="lux-btn lux-btn-danger" onClick={clearAll}>
           Clear Cart
         </button>
-      </div>
-      {error ? <div className="alert alert-danger">{error}</div> : null}
+      </section>
+
+      {/* Conditional alert states. */}
+      {error ? <div className="lux-alert lux-alert-danger">{error}</div> : null}
       {loading ? (
-        <div className="text-center">
-          <div className="spinner-border" role="status"></div>
+        <div className="lux-loader-wrap">
+          <div className="lux-spinner" role="status"></div>
         </div>
       ) : null}
       {!loading && cartItems.length === 0 ? (
-        <div className="alert alert-info">Your cart is empty.</div>
+        <div className="lux-alert lux-alert-info">Your cart is empty.</div>
       ) : null}
-      {cartItems.map((item) => (
-        <div key={getProductId(item)} className="card mb-3">
-          <div className="card-body d-flex justify-content-between align-items-center flex-wrap">
-            <div className="d-flex align-items-center">
-              <img
-                src={item.imageUrl}
-                alt={item.name}
-                style={{ width: 80, height: 80, objectFit: "contain" }}
-                className="mr-3"
-              />
-              <div>
-                <h5 className="mb-1">{item.name}</h5>
-                <p className="mb-0">₹{Number(item.price).toLocaleString("en-IN")}</p>
-              </div>
-            </div>
-            <div className="d-flex align-items-center mt-3 mt-md-0">
-              <input
-                type="number"
-                min="0"
-                className="form-control mr-2"
-                style={{ width: 90 }}
-                value={item.quantity}
-                onChange={(e) => updateQuantity(getProductId(item), e.target.value)}
-              />
-              <button
-                className="btn btn-outline-danger"
-                onClick={() => removeItem(getProductId(item))}
-              >
-                Remove
-              </button>
-            </div>
+
+      <div className="cart-layout">
+        <section className="cart-items-panel">
+          {/* Table-like headers for cart columns. */}
+          <div className="cart-items-head">
+            <span>Product</span>
+            <span>Quantity</span>
+            <span>Total</span>
           </div>
-        </div>
-      ))}
-      <div className="card mt-4">
-        <div className="card-body d-flex justify-content-between align-items-center">
-          <h4 className="mb-0">Total: ₹{Number(total).toLocaleString("en-IN")}</h4>
+
+          {/* Render each cart row card. */}
+          {cartItems.map((item) => {
+            const lineTotal = Number(item.price) * Number(item.quantity);
+            return (
+              <article key={getProductId(item)} className="cart-item-card">
+                <div className="cart-item-main">
+                  <img src={item.imageUrl} alt={item.name} className="cart-item-image" />
+                  <div className="cart-item-meta">
+                    <h5>{item.name}</h5>
+                    <p className="lux-muted">₹{Number(item.price).toLocaleString("en-IN")} each</p>
+                    <span className="cart-item-badge">Ready to ship</span>
+                  </div>
+                </div>
+
+                <div className="cart-item-controls">
+                  <p className="cart-item-label">Quantity</p>
+                  <div className="qty-control">
+                    <button
+                      type="button"
+                      className="lux-btn lux-btn-ghost qty-btn"
+                      onClick={() => decrementQuantity(item)}
+                      disabled={Number(item.quantity) <= 1}
+                    >
+                      -
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      className="lux-input qty-input"
+                      value={item.quantity}
+                      onChange={(e) =>
+                        updateQuantity(getProductId(item), Math.max(1, Number(e.target.value)))
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="lux-btn lux-btn-ghost qty-btn"
+                      onClick={() => incrementQuantity(item)}
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                <div className="cart-item-price">
+                  <p className="cart-item-label">Line Total</p>
+                  <p className="cart-line-total">₹{lineTotal.toLocaleString("en-IN")}</p>
+                  <button
+                    className="lux-btn lux-btn-ghost"
+                    onClick={() => removeItem(getProductId(item))}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+
+        {/* Summary sidebar. */}
+        <aside className="lux-summary-card cart-summary">
+          <h4>Order Summary</h4>
+          <div className="summary-row">
+            <span>Items</span>
+            <span>{itemCount}</span>
+          </div>
+          <div className="summary-row">
+            <span>Subtotal</span>
+            <span>₹{Number(total).toLocaleString("en-IN")}</span>
+          </div>
+          <div className="summary-row">
+            <span>Shipping</span>
+            <span>Free</span>
+          </div>
+          <div className="summary-row summary-row-total">
+            <span>Total</span>
+            <span>₹{Number(total).toLocaleString("en-IN")}</span>
+          </div>
           <button
-            className="btn btn-success"
-            onClick={() => navigate("/checkout")}
-            disabled={cartItems.length === 0}
+            className="lux-btn lux-btn-primary lux-btn-block"
+            onClick={() => navigate("/")}
           >
-            Proceed to Checkout
+            Continue Shopping
           </button>
-        </div>
+        </aside>
       </div>
     </div>
   );
 };
 
+// Export page component for route usage.
 export default Cart;

@@ -1,6 +1,9 @@
+// React hooks for reducer-based form state, context actions, and status messages.
 import React, { useReducer, useContext, useState } from "react";
+// Product context exposes product creation and list refresh actions.
 import ProductContext from "../context/ProductContext";
 
+// Initial form values for new product creation.
 const initialState = {
   name: "",
   description: "",
@@ -8,6 +11,7 @@ const initialState = {
   imageUrl: "",
 };
 
+// Reducer to update one field at a time or reset the full form.
 const productReducer = (state, action) => {
   if (
     action.type === "description" ||
@@ -19,28 +23,36 @@ const productReducer = (state, action) => {
       ...state,
       [action.type]: action.payload,
     };
-  } else if (action.type === "RESET") {
-    return initialState;
-  } else {
-    return state;
   }
+
+  if (action.type === "RESET") {
+    return initialState;
+  }
+
+  return state;
 };
 
+// Add-product page with simple client-side validation.
 const AddProduct = () => {
+  // Form model state.
   const [product, dispatch] = useReducer(productReducer, initialState);
+  // Error feedback state.
   const [error, setError] = useState("");
+  // Success feedback state.
   const [success, setSuccess] = useState("");
 
+  // Actions provided by product context.
   const { addNewProduct, fetchProducts } = useContext(ProductContext);
 
+  // Generic input/textarea change handler.
   const changeHandler = (e) => {
     const { value, name } = e.target;
     dispatch({ type: name, payload: value });
-    // Clear errors when user starts typing
     if (error) setError("");
     if (success) setSuccess("");
   };
 
+  // Basic client-side validation before API submit.
   const validateForm = () => {
     if (
       !product.name ||
@@ -70,6 +82,7 @@ const AddProduct = () => {
     return true;
   };
 
+  // Submit handler calls create endpoint and resets form on success.
   const submitHandler = async (e) => {
     e.preventDefault();
     setError("");
@@ -83,7 +96,6 @@ const AddProduct = () => {
       await addNewProduct(product);
       setSuccess("Product added successfully!");
       dispatch({ type: "RESET" });
-      // Refetch products from database to ensure UI is in sync
       await fetchProducts();
     } catch (err) {
       console.log(err);
@@ -94,7 +106,7 @@ const AddProduct = () => {
   return (
     <div className="container">
       <div className="add-product">
-        <h1>➕ Add New Product</h1>
+        <h1>Add New Product</h1>
         <hr />
         {error && (
           <div className="alert alert-danger" role="alert">
@@ -172,4 +184,5 @@ const AddProduct = () => {
   );
 };
 
+// Export page for routing.
 export default AddProduct;

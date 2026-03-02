@@ -1,13 +1,21 @@
-# Watch Sales Site Backend
+# Watch Sales Backend (Cart Brand Scope)
 
-Backend API for the watch sales project, built with Express + MongoDB (Mongoose) and JWT-based authentication.
+Backend API for the cart-brand version of the project.
+
+Current backend scope is intentionally limited to:
+- Product catalog + product management
+- Cart management
+
+Removed from scope:
+- User accounts
+- Authentication/authorization
+- Orders
+- Payment
 
 ## Tech Stack
 - Node.js (ES modules)
 - Express
 - MongoDB + Mongoose
-- JWT (`jsonwebtoken`)
-- Password hashing (`bcryptjs`)
 - CORS + Morgan + Dotenv
 
 ## Project Structure
@@ -18,22 +26,12 @@ backend/
   controllers/
     productController.js
     cartController.js
-    userController.js
-    orderController.js
-  middlewares/
-    authMiddleware.js
   models/
     product.js
     cart.js
-    user.js
-    order.js
   routes/
     productRoutes.js
     cartRoutes.js
-    userRoutes.js
-    orderRoutes.js
-  utils/
-    generateToken.js
   server.js
 ```
 
@@ -45,7 +43,6 @@ npm install
 2. Create `.env`:
 ```env
 MONGO_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret
 PORT=3000
 ```
 3. Run in development:
@@ -60,14 +57,14 @@ npm start
 ## Base URL
 `http://localhost:3000`
 
-## Auth
-Protected routes require:
-```http
-Authorization: Bearer <token>
-```
-Token is returned from register/login.
+## Cart Identity (No Auth)
+Cart endpoints use a request header to identify a cart:
 
-Admin-only routes also require a valid token where `req.user.role === "admin"`.
+```http
+x-cart-id: cart_abc123
+```
+
+If your frontend uses this backend, keep one `x-cart-id` per browser/user (usually in localStorage).
 
 ## API Routes
 
@@ -78,45 +75,14 @@ Admin-only routes also require a valid token where `req.user.role === "admin"`.
 - `PUT /:id` -> Update product
 - `DELETE /:id` -> Delete product
 
-### Cart Routes (`/api/cart`) (Protected)
+### Cart Routes (`/api/cart`)
+- `GET /` -> Get cart by `x-cart-id`
 - `POST /` -> Add item to cart
-- `GET /` -> Get logged-in user cart
 - `PUT /` -> Update cart item quantity
 - `DELETE /clear` -> Clear full cart
 - `DELETE /:productId` -> Remove one cart item
 
-### User Routes (`/api/users`)
-- `POST /register` -> Register user
-- `POST /login` -> Login user
-- `GET /profile` (Protected) -> Get profile
-- `PUT /profile` (Protected) -> Update profile
-- `DELETE /:id` (Protected) -> Delete user by id (self or admin)
-
-### Order Routes (`/api/orders`) (Protected)
-- `POST /` -> Create order from current cart
-- `GET /` -> Get logged-in user orders
-- `GET /:orderId` -> Get one order (owner or admin)
-- `PUT /:orderId/cancel` -> Cancel order (owner or admin; blocked for shipped/delivered/cancelled)
-- `PUT /:orderId/status` (Admin) -> Update order `status` and/or `paymentStatus`
-
 ## Request Body Examples
-
-### Register
-```json
-{
-  "name": "Rohan",
-  "email": "rohan@example.com",
-  "password": "password123"
-}
-```
-
-### Login
-```json
-{
-  "email": "rohan@example.com",
-  "password": "password123"
-}
-```
 
 ### Add Product
 ```json
@@ -136,28 +102,6 @@ Admin-only routes also require a valid token where `req.user.role === "admin"`.
 }
 ```
 
-### Create Order
-```json
-{
-  "shippingAddress": {
-    "street": "MG Road",
-    "city": "Bengaluru",
-    "state": "Karnataka",
-    "zipCode": "560001",
-    "country": "India"
-  },
-  "paymentMethod": "upi"
-}
-```
-
-### Update Order Status (Admin)
-```json
-{
-  "status": "shipped",
-  "paymentStatus": "completed"
-}
-```
-
 ## Response Format
 Most endpoints return:
 ```json
@@ -173,10 +117,8 @@ Most endpoints return:
 - Cart quantity rules:
   - `POST /api/cart`: `quantity` must be a positive integer.
   - `PUT /api/cart`: `quantity` must be a non-negative integer (`0` removes item).
-- Creating an order requires complete shipping address:
-  - `street`, `city`, `state`, `zipCode`, `country`
-- After successful order creation, cart is automatically cleared.
+- `x-cart-id` header is required for all cart endpoints.
 
 ## Detailed Flow Doc
-For a detailed explanation of server startup, route flow, and each controller/model, see:
+For request flow and controller/model notes, see:
 - `BACKEND_FLOW.md`

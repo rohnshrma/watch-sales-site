@@ -1,7 +1,11 @@
+// React hooks for reducer form state, context actions, and lifecycle loading.
 import React, { useReducer, useContext, useState, useEffect } from "react";
+// Product context provides current list and update/fetch actions.
 import ProductContext from "../../context/ProductContext";
+// useParams reads target product id from route.
 import { useParams } from "react-router-dom";
 
+// Initial edit-form state.
 const initialState = {
   name: "",
   description: "",
@@ -9,6 +13,7 @@ const initialState = {
   imageUrl: "",
 };
 
+// Reducer supports field updates, loading selected product, and reset.
 const productReducer = (state, action) => {
   if (
     action.type === "description" ||
@@ -20,31 +25,42 @@ const productReducer = (state, action) => {
       ...state,
       [action.type]: action.payload,
     };
-  } else if (action.type === "LOAD_PRODUCT") {
-    return action.payload;
-  } else if (action.type === "RESET") {
-    return initialState;
-  } else {
-    return state;
   }
+
+  if (action.type === "LOAD_PRODUCT") {
+    return action.payload;
+  }
+
+  if (action.type === "RESET") {
+    return initialState;
+  }
+
+  return state;
 };
 
+// Edit-product page.
 const EditProduct = () => {
+  // Product id from route path `/edit-product/:id`.
   const { id } = useParams();
+  // Reducer state and dispatcher for form values.
   const [product, dispatch] = useReducer(productReducer, initialState);
+  // Error feedback message.
   const [error, setError] = useState("");
+  // Success feedback message.
   const [success, setSuccess] = useState("");
 
+  // Access products and actions from context.
   const { products, editProduct, fetchProducts } = useContext(ProductContext);
 
+  // Generic form input change handler.
   const changeHandler = (e) => {
     const { value, name } = e.target;
     dispatch({ type: name, payload: value });
-    // Clear errors when user starts typing
     if (error) setError("");
     if (success) setSuccess("");
   };
 
+  // Load existing product values into form when data is available.
   useEffect(() => {
     if (!products.length) {
       fetchProducts();
@@ -57,6 +73,7 @@ const EditProduct = () => {
     }
   }, [id, products]);
 
+  // Client-side validation before update request.
   const validateForm = () => {
     if (
       !product.name ||
@@ -86,6 +103,7 @@ const EditProduct = () => {
     return true;
   };
 
+  // Submit updated payload to backend.
   const submitHandler = async (e) => {
     e.preventDefault();
     setError("");
@@ -99,7 +117,6 @@ const EditProduct = () => {
       await editProduct(id, product);
       setSuccess("Product Updated successfully!");
       dispatch({ type: "RESET" });
-      // Refetch products from database to ensure UI is in sync
       await fetchProducts();
     } catch (err) {
       console.log(err);
@@ -110,7 +127,7 @@ const EditProduct = () => {
   return (
     <div className="container">
       <div className="add-product">
-        <h1>🖊️ Update Product</h1>
+        <h1>Update Product</h1>
         <hr />
         {error && (
           <div className="alert alert-danger" role="alert">
@@ -188,4 +205,5 @@ const EditProduct = () => {
   );
 };
 
+// Export page for route usage.
 export default EditProduct;

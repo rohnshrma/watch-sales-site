@@ -1,87 +1,67 @@
-import React, { useContext } from "react";
-import { Link } from "react-router-dom";
-import AuthContext from "../context/AuthContext";
+// React hooks are used for context consumption and menu toggle state.
+import React, { useContext, useState } from "react";
+// Link/NavLink provide navigation and active-link styling support.
+import { Link, NavLink } from "react-router-dom";
+// CartContext provides current cart item count for navbar display.
 import CartContext from "../context/CartContext";
 
+// Helper returns base nav class and appends active class when route matches.
+const navLinkClass = ({ isActive }) =>
+  `lux-nav-link${isActive ? " active-nav-link" : ""}`;
+
+// Top navigation component for storefront + management routes.
 const Nav = () => {
-  const { isAuthenticated, isAdmin, user, logout } = useContext(AuthContext);
+  // Read cart items to show live count in the Cart nav label.
   const { cartItems } = useContext(CartContext);
+  // Mobile menu open/close state.
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Utility closes menu after user clicks a nav item.
+  const closeMenu = () => setIsMenuOpen(false);
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark">
-      <div className="container">
-        <Link className="navbar-brand" to="/">
-          <strong>⌚ Watch Store</strong>
+    <nav className="lux-nav">
+      <div className="lux-shell lux-nav-inner">
+        {/* Brand logo/title linking back to home page. */}
+        <Link className="lux-brand" to="/" onClick={closeMenu}>
+          <strong>Watch Eclat</strong>
         </Link>
+
+        {/* Hamburger toggle for mobile navigation. */}
         <button
-          className="navbar-toggler"
+          className="lux-nav-toggle"
           type="button"
-          data-toggle="collapse"
-          data-target="#navbarNav"
-          aria-controls="navbarNav"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
+          onClick={() => setIsMenuOpen((prev) => !prev)}
+          aria-controls="luxNavMenu"
+          aria-expanded={isMenuOpen}
+          aria-label="Toggle menu"
         >
-          <span className="navbar-toggler-icon"></span>
+          {isMenuOpen ? "Close" : "Menu"}
         </button>
-        <div className="collapse navbar-collapse" id="navbarNav">
-          <ul className="navbar-nav ml-auto">
-            <li className="nav-item">
-              <Link className="nav-link" to="/">
-                🏠 Home
-              </Link>
+
+        {/* Menu panel; adds `show` class when open on smaller screens. */}
+        <div className={`lux-nav-menu${isMenuOpen ? " show" : ""}`} id="luxNavMenu">
+          <ul className="lux-nav-list">
+            <li>
+              <NavLink className={navLinkClass} to="/" onClick={closeMenu}>
+                Home
+              </NavLink>
             </li>
-            {isAuthenticated ? (
-              <>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/cart">
-                    🛒 Cart ({cartItems.length})
-                  </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/orders">
-                    📦 Orders
-                  </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/profile">
-                    👤 {user?.name?.split(" ")[0] || "Profile"}
-                  </Link>
-                </li>
-                {isAdmin ? (
-                  <>
-                    <li className="nav-item">
-                      <Link className="nav-link" to="/add-product">
-                        ➕ Add Product
-                      </Link>
-                    </li>
-                    <li className="nav-item">
-                      <Link className="nav-link" to="/admin/dashboard">
-                        👨🏻‍💼 ADMIN
-                      </Link>
-                    </li>
-                  </>
-                ) : null}
-                <li className="nav-item">
-                  <button className="btn btn-sm btn-danger ml-2" onClick={logout}>
-                    Logout
-                  </button>
-                </li>
-              </>
-            ) : (
-              <>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/user/login">
-                    🔐 Login
-                  </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/user/register">
-                    📝 Register
-                  </Link>
-                </li>
-              </>
-            )}
+            <li>
+              <NavLink className={navLinkClass} to="/manage-products" onClick={closeMenu}>
+                Manage Products
+              </NavLink>
+            </li>
+            <li>
+              <NavLink className={navLinkClass} to="/add-product" onClick={closeMenu}>
+                Add Product
+              </NavLink>
+            </li>
+            <li>
+              <NavLink className={navLinkClass} to="/cart" onClick={closeMenu}>
+                Cart ({cartItems.length})
+              </NavLink>
+            </li>
           </ul>
         </div>
       </div>
@@ -89,4 +69,5 @@ const Nav = () => {
   );
 };
 
+// Export so App can render the shared navigation.
 export default Nav;
