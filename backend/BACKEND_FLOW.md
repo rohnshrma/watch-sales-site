@@ -1,103 +1,57 @@
-# Backend Flow Explanation (Cart Brand Scope)
+# Backend Flow Explanation (User + Cart Scope)
 
-This document explains the current backend flow for the cart-brand scope.
+This document explains request flow in `user_and_cart`.
 
 ## 1) Server Boot Flow (`server.js`)
-1. Loads environment variables via `dotenv`.
-2. Connects MongoDB with `connectDB()`.
-3. Creates an Express app.
-4. Attaches middleware:
-   - `cors()` for cross-origin requests.
-   - `express.json()` for JSON body parsing.
-   - `morgan("dev")` for request logging.
-5. Mounts route groups:
-   - `/api/products` -> product routes
-   - `/api/cart` -> cart routes
-6. Starts server on `process.env.PORT || 3000`.
+1. Load env vars via `dotenv`.
+2. Connect DB via `connectDB()`.
+3. Create Express app.
+4. Attach middleware: `cors`, `express.json`, `morgan("dev")`.
+5. Mount routes:
+   - `/api/products` -> product routes (public)
+   - `/api/cart` -> cart routes (protected)
+   - `/api/users` -> user routes (mixed public/protected)
+6. Start server on `PORT` or `3000`.
 
-## 2) Database Connection (`config/db.js`)
-- Uses `mongoose.connect(process.env.MONGO_URI)`.
-- Logs connected DB host on success.
-- Logs error and exits process on failure.
+## 2) Auth Flow
+- `POST /api/users/register` creates account and returns bearer token.
+- `POST /api/users/login` validates credentials and returns bearer token.
+- `protect` middleware validates bearer token and attaches `req.user`.
+- `GET/PUT /api/users/profile` use `req.user`.
 
-## 3) Route -> Controller Mapping
+## 3) Cart Flow (Auth-Connected)
+- Cart routes require valid bearer token.
+- Cart is looked up using `req.user.id`.
+- First add creates a cart document for that user.
+- Update/remove/clear mutate the same user-owned cart.
 
-### Product (`routes/productRoutes.js`)
+## 4) Route -> Controller Mapping
+
+### Product
 - `GET /api/products` -> `GET_PRODUCTS`
 - `POST /api/products` -> `ADD_PRODUCT`
 - `GET /api/products/:id` -> `GET_SINGLE_PRODUCT`
 - `PUT /api/products/:id` -> `EDIT_PRODUCT`
 - `DELETE /api/products/:id` -> `DELETE_PRODUCT`
 
-### Cart (`routes/cartRoutes.js`)
-- `POST /api/cart` -> `ADD_TO_CART`
-- `GET /api/cart` -> `GET_USER_CART`
-- `PUT /api/cart` -> `UPDATE_CART_ITEM`
-- `DELETE /api/cart/clear` -> `CLEAR_CART`
-- `DELETE /api/cart/:productId` -> `REMOVE_CART_ITEM`
+### Users
+- `POST /api/users/register` -> `REGISTER`
+- `POST /api/users/login` -> `LOGIN`
+- `GET /api/users/profile` -> `GET_USER_PROFILE` (protected)
+- `PUT /api/users/profile` -> `UPDATE_USER_PROFILE` (protected)
 
-## 4) Cart Identity Model (No Auth)
-- Cart ownership is based on `x-cart-id` request header.
-- Backend expects every cart request to include `x-cart-id`.
-- Cart document stores `cartId` (string, unique).
+### Cart
+- `POST /api/cart` -> `ADD_TO_CART` (protected)
+- `GET /api/cart` -> `GET_USER_CART` (protected)
+- `PUT /api/cart` -> `UPDATE_CART_ITEM` (protected)
+- `DELETE /api/cart/clear` -> `CLEAR_CART` (protected)
+- `DELETE /api/cart/:productId` -> `REMOVE_CART_ITEM` (protected)
 
-## 5) Controller Responsibilities
+## 5) Model Summary
+- `Product`: catalog data.
+- `User`: account identity + password hash + role.
+- `Cart`: one document per user with cart items and total.
 
-### Product Controller (`controllers/productController.js`)
-- `GET_PRODUCTS`: Fetches all products.
-- `ADD_PRODUCT`: Validates required fields and creates a product.
-- `GET_SINGLE_PRODUCT`: Finds one product by id.
-- `DELETE_PRODUCT`: Checks product existence and deletes it.
-- `EDIT_PRODUCT`: Updates product fields partially and saves.
-
-### Cart Controller (`controllers/cartController.js`)
-- `ADD_TO_CART`:
-  - Validates `x-cart-id`, `productId`, and positive integer `quantity`.
-  - Confirms product exists.
-  - Loads or creates cart by `cartId`.
-  - Increments quantity if item exists, else pushes a new snapshot item.
-  - Recalculates total and saves.
-- `GET_USER_CART`:
-  - Validates `x-cart-id`.
-  - Returns cart if found.
-  - Returns empty cart shape if not found.
-- `UPDATE_CART_ITEM`:
-  - Validates `x-cart-id`, `productId`, and non-negative integer `quantity`.
-  - Updates item quantity or removes item when quantity is `0`.
-  - Recalculates total.
-- `REMOVE_CART_ITEM`:
-  - Validates `x-cart-id`.
-  - Removes one item by `productId`.
-  - Recalculates total.
-- `CLEAR_CART`:
-  - Validates `x-cart-id`.
-  - Empties all items and resets total.
-
-## 6) Model Design
-
-### Product Model (`models/product.js`)
-- Fields: `name`, `price`, `description`, `imageUrl`.
-- Constraints:
-  - `name` unique, required, min length 5.
-  - `price` is number, minimum `0`.
-  - `description` required, min length 20.
-  - timestamps enabled.
-
-### Cart Model (`models/cart.js`)
-- One cart per `cartId` (unique string).
-- `cartItems[]` includes:
-  - `product` ref
-  - `name`, `imageUrl`, `price`, `quantity` snapshot values
-- `total` stores computed cart amount.
-
-## 7) End-to-End Lifecycle
-1. Client fetches products from `/api/products`.
-2. Client creates/uses a persistent `x-cart-id`.
-3. Client calls `/api/cart` endpoints with `x-cart-id`.
-4. Backend stores and updates cart by `cartId`.
-
-## 8) Out of Scope (Removed)
-- User registration/login/profile
-- JWT authentication
-- Order creation/history/cancellation
-- Payment methods/status
+## 6) Out of Scope
+- Order creation/history
+- Payment handling

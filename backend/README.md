@@ -1,14 +1,13 @@
-# Watch Sales Backend (Cart Brand Scope)
+# Watch Sales Backend (User + Cart Scope)
 
-Backend API for the cart-brand version of the project.
+Backend API for the `user_and_cart` branch.
 
-Current backend scope is intentionally limited to:
+Current backend scope:
 - Product catalog + product management
-- Cart management
+- User registration/login/profile
+- Auth-protected cart linked to authenticated user
 
-Removed from scope:
-- User accounts
-- Authentication/authorization
+Out of scope:
 - Orders
 - Payment
 
@@ -17,6 +16,7 @@ Removed from scope:
 - Express
 - MongoDB + Mongoose
 - CORS + Morgan + Dotenv
+- Built-in Node crypto-based auth token + password hashing
 
 ## Project Structure
 ```txt
@@ -26,12 +26,19 @@ backend/
   controllers/
     productController.js
     cartController.js
+    userController.js
+  middlewares/
+    authMiddleware.js
   models/
     product.js
     cart.js
+    user.js
   routes/
     productRoutes.js
     cartRoutes.js
+    userRoutes.js
+  utils/
+    generateToken.js
   server.js
 ```
 
@@ -43,6 +50,7 @@ npm install
 2. Create `.env`:
 ```env
 MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_secret_key
 PORT=3000
 ```
 3. Run in development:
@@ -57,14 +65,13 @@ npm start
 ## Base URL
 `http://localhost:3000`
 
-## Cart Identity (No Auth)
-Cart endpoints use a request header to identify a cart:
-
+## Auth
+Protected routes require:
 ```http
-x-cart-id: cart_abc123
+Authorization: Bearer <token>
 ```
 
-If your frontend uses this backend, keep one `x-cart-id` per browser/user (usually in localStorage).
+Token is returned by login/register and refreshed on profile update.
 
 ## API Routes
 
@@ -75,14 +82,37 @@ If your frontend uses this backend, keep one `x-cart-id` per browser/user (usual
 - `PUT /:id` -> Update product
 - `DELETE /:id` -> Delete product
 
-### Cart Routes (`/api/cart`)
-- `GET /` -> Get cart by `x-cart-id`
+### User Routes (`/api/users`)
+- `POST /register` -> Register user
+- `POST /login` -> Login user
+- `GET /profile` (Protected) -> Get profile
+- `PUT /profile` (Protected) -> Update profile
+
+### Cart Routes (`/api/cart`) (Protected)
+- `GET /` -> Get current user's cart
 - `POST /` -> Add item to cart
 - `PUT /` -> Update cart item quantity
 - `DELETE /clear` -> Clear full cart
 - `DELETE /:productId` -> Remove one cart item
 
 ## Request Body Examples
+
+### Register
+```json
+{
+  "name": "Rohan",
+  "email": "rohan@example.com",
+  "password": "password123"
+}
+```
+
+### Login
+```json
+{
+  "email": "rohan@example.com",
+  "password": "password123"
+}
+```
 
 ### Add Product
 ```json
@@ -112,13 +142,7 @@ Most endpoints return:
 }
 ```
 
-## Important Validation/Behavior Notes
-- Product `price` is numeric in DB.
-- Cart quantity rules:
-  - `POST /api/cart`: `quantity` must be a positive integer.
-  - `PUT /api/cart`: `quantity` must be a non-negative integer (`0` removes item).
-- `x-cart-id` header is required for all cart endpoints.
-
-## Detailed Flow Doc
-For request flow and controller/model notes, see:
-- `BACKEND_FLOW.md`
+## Notes
+- One cart per user (`cart.user` is unique).
+- Cart APIs are accessible only with valid bearer token.
+- Orders and payment endpoints are intentionally removed from this branch.

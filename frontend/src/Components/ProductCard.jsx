@@ -6,6 +6,8 @@ import { useNavigate } from "react-router-dom";
 import ProductContext from "../context/ProductContext";
 // CartContext exposes add-to-cart action for storefront mode.
 import CartContext from "../context/CartContext";
+// AuthContext checks whether user is logged in before cart action.
+import AuthContext from "../context/AuthContext";
 
 // Reusable product card; optionally switches to management action buttons.
 const ProductCard = ({ product, showManageActions = false }) => {
@@ -15,9 +17,16 @@ const ProductCard = ({ product, showManageActions = false }) => {
   const { deleteProduct } = useContext(ProductContext);
   // Cart add action from context.
   const { addProductToCart } = useContext(CartContext);
+  // Auth flag used to gate add-to-cart.
+  const { isAuthenticated } = useContext(AuthContext);
 
   // Handles adding one unit of product to cart.
   const addToCartHandler = async () => {
+    if (!isAuthenticated) {
+      navigate("/user/login");
+      return;
+    }
+
     try {
       // Product object is accepted by CartContext helper.
       await addProductToCart(product, 1);
@@ -25,7 +34,7 @@ const ProductCard = ({ product, showManageActions = false }) => {
       alert("Added to cart");
     } catch (error) {
       // Surface user-friendly message if API call fails.
-      alert(error.message || "Failed to add item to cart");
+      alert(error.response?.data?.message || error.message || "Failed to add item to cart");
     }
   };
 

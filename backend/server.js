@@ -10,6 +10,10 @@ import connectDB from "./config/db.js";
 import productRoutes from "./routes/productRoutes.js";
 // Cart route module.
 import cartRoutes from "./routes/cartRoutes.js";
+// User route module for register/login/profile.
+import userRoutes from "./routes/userRoutes.js";
+// Auth guard middleware for protected APIs.
+import { protect } from "./middlewares/authMiddleware.js";
 // morgan logs HTTP requests in development-friendly format.
 import morgan from "morgan";
 
@@ -30,8 +34,10 @@ app.use(morgan("dev"));
 
 // Mount product endpoints under /api/products.
 app.use("/api/products", productRoutes);
-// Mount cart endpoints under /api/cart.
-app.use("/api/cart", cartRoutes);
+// Mount cart endpoints under /api/cart and protect them with JWT auth.
+app.use("/api/cart", protect, cartRoutes);
+// Mount user auth/profile endpoints under /api/users.
+app.use("/api/users", userRoutes);
 
 // Resolve runtime port from env or fallback to 3000.
 const PORT = process.env.PORT || 3000;

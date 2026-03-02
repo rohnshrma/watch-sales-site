@@ -8,44 +8,13 @@ const getCartTotal = (cartItems) => {
   return cartItems.reduce((acc, item) => acc + Number(item.price) * item.quantity, 0);
 };
 
-// Read and sanitize cart id from request headers.
-const getCartIdFromRequest = (req) => {
-  const rawCartId = req.headers["x-cart-id"];
-  if (!rawCartId || typeof rawCartId !== "string" || !rawCartId.trim()) {
-    return null;
-  }
-  return rawCartId.trim();
-};
-
-// Load existing cart by cartId or create a new empty one.
-const getOrCreateCart = async (cartId) => {
-  let cart = await Cart.findOne({ cartId });
-  if (!cart) {
-    cart = await Cart.create({
-      cartId,
-      cartItems: [],
-      total: 0,
-    });
-  }
-  return cart;
-};
-
 // POST /api/cart
 export const ADD_TO_CART = async (req, res) => {
   try {
     // Read payload fields.
     const { productId, quantity = 1 } = req.body;
-    // Identify cart from request header.
-    const cartId = getCartIdFromRequest(req);
-
-    // Enforce cart-id header.
-    if (!cartId) {
-      return res.status(400).json({
-        data: null,
-        status: "fail",
-        message: "x-cart-id header is required",
-      });
-    }
+    // Read authenticated user id from protect middleware.
+    const userId = req.user.id;
 
     // Enforce required product id.
     if (!productId) {
@@ -76,8 +45,15 @@ export const ADD_TO_CART = async (req, res) => {
       });
     }
 
-    // Resolve cart by cartId.
-    const cart = await getOrCreateCart(cartId);
+    // Resolve cart by owning user.
+    let cart = await Cart.findOne({ user: userId });
+    if (!cart) {
+      cart = await Cart.create({
+        user: userId,
+        cartItems: [],
+        total: 0,
+      });
+    }
 
     // Find index if product already exists in cart.
     const itemIndex = cart.cartItems.findIndex(
@@ -122,18 +98,8 @@ export const ADD_TO_CART = async (req, res) => {
 // GET /api/cart
 export const GET_USER_CART = async (req, res) => {
   try {
-    // Resolve cart id from headers.
-    const cartId = getCartIdFromRequest(req);
-    if (!cartId) {
-      return res.status(400).json({
-        data: null,
-        status: "fail",
-        message: "x-cart-id header is required",
-      });
-    }
-
     // Fetch cart and populate product references.
-    const cart = await Cart.findOne({ cartId }).populate("cartItems.product");
+    const cart = await Cart.findOne({ user: req.user.id }).populate("cartItems.product");
 
     // Return empty cart shape if no cart exists yet.
     if (!cart) {
@@ -163,18 +129,8 @@ export const GET_USER_CART = async (req, res) => {
 // DELETE /api/cart/clear
 export const CLEAR_CART = async (req, res) => {
   try {
-    // Resolve cart id from headers.
-    const cartId = getCartIdFromRequest(req);
-    if (!cartId) {
-      return res.status(400).json({
-        data: null,
-        status: "fail",
-        message: "x-cart-id header is required",
-      });
-    }
-
-    // Find cart for current cart id.
-    const cart = await Cart.findOne({ cartId });
+    // Find cart for current authenticated user.
+    const cart = await Cart.findOne({ user: req.user.id });
 
     // If no cart, return already-empty shape.
     if (!cart) {
@@ -211,18 +167,9 @@ export const REMOVE_CART_ITEM = async (req, res) => {
   try {
     // Read target product id from route.
     const { productId } = req.params;
-    // Resolve cart id from headers.
-    const cartId = getCartIdFromRequest(req);
-    if (!cartId) {
-      return res.status(400).json({
-        data: null,
-        status: "fail",
-        message: "x-cart-id header is required",
-      });
-    }
 
-    // Find cart for current cart id.
-    const cart = await Cart.findOne({ cartId });
+    // Find cart for current authenticated user.
+    const cart = await Cart.findOne({ user: req.user.id });
 
     // Return empty cart shape when cart does not exist.
     if (!cart) {
@@ -274,18 +221,9 @@ export const UPDATE_CART_ITEM = async (req, res) => {
   try {
     // Read payload for target item + quantity.
     const { productId, quantity } = req.body;
-    // Resolve cart id from headers.
-    const cartId = getCartIdFromRequest(req);
-    if (!cartId) {
-      return res.status(400).json({
-        data: null,
-        status: "fail",
-        message: "x-cart-id header is required",
-      });
-    }
 
-    // Find cart for current cart id.
-    const cart = await Cart.findOne({ cartId });
+    // Find cart for current authenticated user.
+    const cart = await Cart.findOne({ user: req.user.id });
 
     // Ensure productId is provided.
     if (!productId) {

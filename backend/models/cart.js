@@ -37,15 +37,15 @@ const cartItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
-// Main cart schema identified by cartId (header-driven identity).
+// Main cart schema identified by owning user id.
 const cartSchema = new mongoose.Schema(
   {
-    // Unique cart id string coming from x-cart-id header.
-    cartId: {
-      type: String,
+    // One cart per user account.
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
       unique: true,
-      trim: true,
     },
     // Array of cart line items.
     cartItems: [cartItemSchema],

@@ -1,71 +1,39 @@
-# Watch Sales Frontend (Cart Brand Scope)
+# Watch Sales Frontend (User + Cart Scope)
 
-Frontend for the cart-brand version of the watch store.
+Frontend for the `user_and_cart` branch.
 
-Current frontend scope is intentionally limited to:
-- Product browsing and product management
-- Cart management
+Current scope:
+- Product browsing + product management
+- User auth (register/login/profile/logout)
+- Auth-protected cart connected to backend user cart
 
-Removed from scope:
-- User login/register/profile
-- Auth guards/roles
-- Checkout/orders/payment
+Out of scope:
+- Checkout
+- Orders
+- Payment
 
 ## Tech Stack
 - React 19
 - Vite
 - React Router DOM
-- Context API + `useReducer`
+- Context API + hooks
 - Axios
 
-## Project Structure
-```txt
-src/
-  main.jsx
-  App.jsx
-  Components/
-    Nav.jsx
-    ProductCard.jsx
-  Pages/
-    Home.jsx
-    ProductPage.jsx
-    Cart.jsx
-    AddProduct.jsx
-    Admin/
-      ManageProducts.jsx
-      EditProduct.jsx
-  context/
-    ProductContext.jsx
-    CartContext.jsx
-  utils/
-    api.js
-```
+## Active Pages
+- `/` Home
+- `/product/:id` Product details
+- `/user/register` Register
+- `/user/login` Login
+- `/profile` Profile (protected)
+- `/cart` Cart (protected)
+- `/add-product` Add product
+- `/manage-products` Manage products
+- `/edit-product/:id` Edit product
 
-## App Boot Flow
-`src/main.jsx` wraps `App` in:
-1. `StrictMode`
-2. `BrowserRouter`
-3. `ProductProvider`
-4. `CartProvider`
-
-## Routing (`App.jsx`)
-- `/` -> `Home`
-- `/product/:id` -> `ProductPage`
-- `/cart` -> `Cart`
-- `/add-product` -> `AddProduct`
-- `/manage-products` -> `ManageProducts`
-- `/edit-product/:id` -> `EditProduct`
-
-## API Configuration
-A shared Axios client is used from `src/utils/api.js`.
-
-- Base URL: `VITE_API_BASE_URL`
-- Fallback: `http://localhost:3000`
-
-Set `.env` in `frontend/` if needed:
-```env
-VITE_API_BASE_URL=http://localhost:3000
-```
+## Contexts
+- `AuthContext` for auth session + profile
+- `ProductContext` for product CRUD state/actions
+- `CartContext` for protected cart state/actions
 
 ## Backend Endpoints Used
 Products:
@@ -75,34 +43,26 @@ Products:
 - `PUT /api/products/:id`
 - `DELETE /api/products/:id`
 
-Cart (`x-cart-id` header required):
+Users:
+- `POST /api/users/register`
+- `POST /api/users/login`
+- `GET /api/users/profile`
+- `PUT /api/users/profile`
+
+Cart (Bearer token):
 - `GET /api/cart`
 - `POST /api/cart`
 - `PUT /api/cart`
 - `DELETE /api/cart/:productId`
 - `DELETE /api/cart/clear`
 
-## Run Locally
-Install dependencies:
+## Run
 ```bash
 npm install
-```
-
-Start dev server:
-```bash
 npm run dev
 ```
 
-Build production bundle:
+## Build
 ```bash
 npm run build
 ```
-
-Lint:
-```bash
-npm run lint
-```
-
-## Notes
-- Cart identity is generated in frontend and persisted locally.
-- Detailed behavior is documented in `FRONTEND_FLOW.md`.

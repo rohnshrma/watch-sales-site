@@ -18,6 +18,12 @@ import AddProduct from "./Pages/AddProduct";
 import ManageProducts from "./Pages/Admin/ManageProducts";
 // Product edit form page for a selected product.
 import EditProduct from "./Pages/Admin/EditProduct";
+// Auth pages.
+import Register from "./Pages/Register";
+import Login from "./Pages/Login";
+import Profile from "./Pages/Profile";
+// Route guard for auth-only pages.
+import ProtectedRoute from "./Components/ProtectedRoute";
 
 // Root component defines layout + routing table for the frontend.
 const App = () => {
@@ -26,19 +32,38 @@ const App = () => {
       {/* Nav remains visible across all routes. */}
       <Nav />
 
-      {/* Route tree for the cart-brand scope. */}
+      {/* Route tree for user + auth + cart scope. */}
       <Routes>
         {/* Product storefront homepage. */}
         <Route path="/" element={<Home />} />
         {/* Dynamic product detail route by product id. */}
         <Route path="/product/:id" element={<ProductPage />} />
-        {/* Public cart page route. */}
-        <Route path="/cart" element={<Cart />} />
-        {/* Public product create route (management). */}
+
+        {/* Public auth routes. */}
+        <Route path="/user/register" element={<Register />} />
+        <Route path="/user/login" element={<Login />} />
+
+        {/* Protected user routes. */}
+        <Route
+          path="/cart"
+          element={
+            <ProtectedRoute>
+              <Cart />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Public product management routes kept from current brand scope. */}
         <Route path="/add-product" element={<AddProduct />} />
-        {/* Public product list/manage route (management). */}
         <Route path="/manage-products" element={<ManageProducts />} />
-        {/* Public product edit route with dynamic id. */}
         <Route path="/edit-product/:id" element={<EditProduct />} />
       </Routes>
     </>

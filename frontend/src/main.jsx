@@ -8,6 +8,8 @@ import App from "./App.jsx";
 import { BrowserRouter as Router } from "react-router-dom";
 // ProductProvider exposes product CRUD state/actions to descendant components.
 import { ProductProvider } from "./context/ProductContext.jsx";
+// AuthProvider exposes login/register/profile state/actions globally.
+import { AuthProvider } from "./context/AuthContext.jsx";
 // CartProvider exposes cart state/actions to descendant components.
 import { CartProvider } from "./context/CartContext.jsx";
 
@@ -17,14 +19,17 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     {/* Router provides navigation and route matching context. */}
     <Router>
-      {/* ProductProvider shares product data and API actions globally. */}
-      <ProductProvider>
-        {/* CartProvider shares cart data and API actions globally. */}
-        <CartProvider>
-          {/* App contains the visual shell and page routes. */}
-          <App />
-        </CartProvider>
-      </ProductProvider>
+      {/* AuthProvider must wrap CartProvider so cart can access auth headers. */}
+      <AuthProvider>
+        {/* ProductProvider shares product data and API actions globally. */}
+        <ProductProvider>
+          {/* CartProvider shares cart data and API actions globally. */}
+          <CartProvider>
+            {/* App contains the visual shell and page routes. */}
+            <App />
+          </CartProvider>
+        </ProductProvider>
+      </AuthProvider>
     </Router>
   </StrictMode>
 );
