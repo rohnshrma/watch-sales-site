@@ -1,28 +1,7 @@
-// Node crypto module verifies HMAC signatures.
-import crypto from "node:crypto";
+// jsonwebtoken verifies and decodes bearer tokens.
+import jwt from "jsonwebtoken";
 // User model is needed to load authenticated user context.
 import User from "../models/user.js";
-
-// Recomputes signature for token validation.
-const sign = (data, secret) => {
-  return crypto.createHmac("sha256", secret).update(data).digest("base64url");
-};
-
-// Verifies token format, signature, and expiry; returns payload or null.
-const verifyToken = (token, secret) => {
-  const [header, payload, signature] = token.split(".");
-  if (!header || !payload || !signature) return null;
-  const expected = sign(`${header}.${payload}`, secret);
-  if (expected !== signature) return null;
-
-  try {
-    const decoded = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    if (!decoded?.id || !decoded?.exp || Date.now() > decoded.exp) return null;
-    return decoded;
-  } catch {
-    return null;
-  }
-};
 
 // Protect middleware enforces valid bearer auth on a route.
 export const protect = async (req, res, next) => {
@@ -34,9 +13,10 @@ export const protect = async (req, res, next) => {
     req.headers.authorization.startsWith("Bearer")
   ) {
     token = req.headers.authorization.split(" ")[1];
-    const decoded = verifyToken(token, process.env.JWT_SECRET);
-
-    if (!decoded) {
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch {
       return res.status(401).json({
         status: "fail",
         message: "Not authorized",

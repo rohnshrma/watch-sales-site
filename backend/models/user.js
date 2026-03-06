@@ -1,21 +1,7 @@
 // Mongoose handles schema/model mapping for MongoDB.
 import mongoose from "mongoose";
-// Node crypto provides password hashing primitives without external packages.
-import crypto from "node:crypto";
-
-// Deterministically hashes a password using scrypt with per-user salt.
-const hashPassword = (password, salt = crypto.randomBytes(16).toString("hex")) => {
-  const derived = crypto.scryptSync(password, salt, 64).toString("hex");
-  return `${salt}:${derived}`;
-};
-
-// Verifies input password against stored salt:hash string.
-const verifyPassword = (enteredPassword, storedHash) => {
-  const [salt, hash] = storedHash.split(":");
-  if (!salt || !hash) return false;
-  const entered = crypto.scryptSync(enteredPassword, salt, 64).toString("hex");
-  return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(entered, "hex"));
-};
+// bcryptjs provides safe password hashing and verification helpers.
+import bcrypt from "bcryptjs";
 
 // User schema stores account identity + credential hash + role.
 const userSchema = new mongoose.Schema(
@@ -54,13 +40,13 @@ const userSchema = new mongoose.Schema(
 // Pre-save hook hashes password when created/changed.
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();
-  this.password = hashPassword(this.password);
+  this.password = await bcrypt.hash(this.password, 10);
   return next();
 });
 
 // Instance method validates login password against stored hash.
 userSchema.methods.matchPassword = async function (enteredPassword) {
-  return verifyPassword(enteredPassword, this.password);
+  return bcrypt.compare(enteredPassword, this.password);
 };
 
 // Create User model.
