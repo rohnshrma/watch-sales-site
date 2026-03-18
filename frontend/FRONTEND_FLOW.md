@@ -1,12 +1,14 @@
 # Frontend Flow Documentation
 
-This document describes the current frontend flow after backend integration updates.
+This document explains the frontend flow for the `cart_user_order_payments` branch, including auth persistence, cart handling, and the Stripe test checkout flow.
 
-## 1) Entry Point: `src/main.jsx`
+## 1) App Boot Flow
 
-`main.jsx` bootstraps React and wraps the app in providers.
+Entry path:
 
-Provider order:
+`index.html` -> `src/main.jsx` -> providers -> `src/App.jsx`
+
+Provider order in `src/main.jsx`:
 
 1. `StrictMode`
 2. `BrowserRouter`
@@ -14,104 +16,96 @@ Provider order:
 4. `ProductProvider`
 5. `CartProvider`
 6. `OrderProvider`
-7. `App`
 
-Flow: `index.html` -> `main.jsx` -> providers -> `App.jsx`
+This means auth state is available before cart and order contexts run.
 
-## 2) Root Routing: `src/App.jsx`
+## 2) Router Layout (`src/App.jsx`)
 
-`App.jsx` always renders `Nav` and maps routes.
+`App.jsx` always renders the navbar and then switches pages using React Router.
 
-Public:
+### Public Routes
 
 - `/` -> `Home`
 - `/product/:id` -> `ProductPage`
 - `/user/register` -> `Register`
 - `/user/login` -> `Login`
 
-Protected (authenticated):
+### Protected User Routes
 
 - `/cart` -> `Cart`
 - `/checkout` -> `Checkout`
 - `/orders` -> `Orders`
 - `/profile` -> `Profile`
 
-Protected (admin):
+### Protected Admin Routes
 
-- `/add-product` -> `AddProduct`
-- `/admin/dashboard` -> `AdminDashboard`
-- `/admin/manage-products` -> `ManageProducts`
-- `/admin/edit-product/:id` -> `EditProduct`
+- `/add-product`
+- `/admin/dashboard`
+- `/admin/manage-products`
+- `/admin/edit-product/:id`
 
-Protection is enforced by `Components/ProtectedRoute.jsx`.
+Protection is enforced by `src/Components/ProtectedRoute.jsx`.
 
-## 3) API Layer: `src/utils/api.js`
+## 3) Shared API Client (`src/utils/api.js`)
 
-A shared Axios client is used across contexts.
+All contexts use one Axios instance.
 
 - `baseURL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000"`
 
-This removes hardcoded URLs from each context/page.
+This keeps requests consistent across auth, cart, product, and order flows.
 
-## 4) Auth Flow: `src/context/AuthContext.jsx`
+## 4) Auth Flow (`src/context/AuthContext.jsx`)
 
-State:
+### State
 
 - `user`
 - `token`
 - `isLoading`
 
-Capabilities:
+### Persistence
 
-- `register(payload)` -> `POST /api/users/register`
-- `login(payload)` -> `POST /api/users/login`
-- `logout()` -> clears state/localStorage
-- `fetchProfile()` -> `GET /api/users/profile`
-- `updateProfile(payload)` -> `PUT /api/users/profile`
+- Saved in localStorage under `watchStoreAuth`
+- Restored on app load
 
-Persistence:
+### Exposed Actions
 
-- Stores auth payload in localStorage key `watchStoreAuth`.
-- Exposes `authHeaders` with `Authorization: Bearer <token>`.
+- `register(payload)`
+- `login(payload)`
+- `logout()`
+- `fetchProfile()`
+- `updateProfile(payload)`
 
-## 5) Product Flow: `src/context/ProductContext.jsx`
+### Derived Values
 
-State:
+- `isAuthenticated`
+- `isAdmin`
+- `authHeaders`
 
-- `products`
-- `product`
+`authHeaders` is reused by cart and order contexts for protected requests.
 
-Actions:
+## 5) Product Flow (`src/context/ProductContext.jsx`)
 
-- `FETCH_PRODUCTS`
-- `FETCH_PRODUCT`
-- `ADD`
+The product context handles:
 
-API methods:
+- list fetching
+- single product fetching
+- admin add/edit/delete operations
 
-- `fetchProducts()` -> `GET /api/products`
-- `fetchProduct(id)` -> `GET /api/products/:id`
-- `addNewProduct(product)` -> `POST /api/products`
-- `editProduct(id, updatedProduct)` -> `PUT /api/products/:id`
-- `deleteProduct(id)` -> `DELETE /api/products/:id`
+Used by:
 
-Used by home/product/admin product pages.
+- `Home`
+- `ProductPage`
+- admin product pages
 
-## 6) Cart Flow: `src/context/CartContext.jsx`
+## 6) Cart Flow (`src/context/CartContext.jsx`)
 
-State:
+### State
 
 - `cartItems`
 - `total`
 - `loading`
 
-Reducer actions:
-
-- `SET_LOADING`
-- `SET_CART`
-- `RESET_CART`
-
-API methods (protected):
+### Backend Calls
 
 - `fetchCart()` -> `GET /api/cart`
 - `addProductToCart(productId, quantity)` -> `POST /api/cart`
@@ -119,95 +113,142 @@ API methods (protected):
 - `removeCartItem(productId)` -> `DELETE /api/cart/:productId`
 - `clearCart()` -> `DELETE /api/cart/clear`
 
-Sync behavior:
+### Sync Behavior
 
-- On login/auth availability, cart is fetched.
-- On logout, cart state is reset.
+1. When a user becomes authenticated, `fetchCart()` runs.
+2. When auth disappears, cart state resets to an empty cart.
+3. Every mutation writes the latest server cart back into context state.
 
-## 7) Order Flow: `src/context/OrderContext.jsx`
+## 7) Order Flow (`src/context/OrderContext.jsx`)
 
-State:
+### State
 
 - `orders`
 - `loading`
 
-API methods (protected):
+### Backend Calls
 
 - `fetchOrders()` -> `GET /api/orders`
+- `createPaymentIntent(payload)` -> `POST /api/orders/payment-intent`
 - `createOrder(payload)` -> `POST /api/orders`
 - `cancelOrder(orderId)` -> `PUT /api/orders/:orderId/cancel`
 
-## 8) Key Page Flows
+This context is the bridge between checkout UI and the protected backend order/payment pipeline.
+
+## 8) Checkout Flow (`src/Pages/Checkout.jsx`)
+
+The checkout page is now a Stripe test checkout instead of a direct order form.
+
+### Stripe Setup
+
+- Reads `VITE_STRIPE_PUBLISHABLE_KEY`
+- Builds `stripePromise` using `loadStripe(...)`
+- Wraps the form in `<Elements>`
+
+If the publishable key is missing, the page shows a warning instead of a broken payment form.
+
+### Form Data
+
+- `street`
+- `city`
+- `state`
+- `zipCode`
+- `country`
+- fixed `paymentMethod = "stripe"`
+
+### Submit Flow
+
+1. Prevents submit if the cart is empty.
+2. Prevents submit if Stripe has not loaded.
+3. Sends shipping data to `createPaymentIntent(...)`.
+4. Receives:
+   - `clientSecret`
+   - `paymentIntentId`
+   - amount
+   - currency
+5. Uses `stripe.confirmCardPayment(...)` with:
+   - `CardElement`
+   - billing name/email from auth state
+   - billing address from the checkout form
+6. If Stripe confirms successfully, calls `createOrder(...)` with:
+   - `shippingAddress`
+   - `paymentMethod: "stripe"`
+   - `paymentIntentId`
+7. Navigates to `/orders` after the order is written on the backend.
+
+### Test Payment UX
+
+The page tells the user to use Stripe test card:
+
+- `4242 4242 4242 4242`
+
+with any future expiry, any 3-digit CVC, and any postal code.
+
+## 9) Orders Page (`src/Pages/Orders.jsx`)
+
+### Load Flow
+
+1. On mount, calls `fetchOrders()`
+2. Handles backend errors locally
+3. Shows loading, empty, or populated order states
+
+### Displayed Order Data
+
+- order id
+- order status
+- payment status
+- payment method
+- total
+- created timestamp
+- paid timestamp when available
+- Stripe payment intent id when available
+- order items
+
+### Cancellation
+
+- Calls `cancelOrder(orderId)`
+- Refreshes order history after success
+- Disables cancel when backend rules would reject it
+
+## 10) Other Page Flows
 
 ### `Home.jsx`
 
-1. Calls `fetchProducts()` on mount.
-2. Renders loading, empty, or product grid state.
+- Fetches products on mount
+- Renders the product grid
 
 ### `ProductPage.jsx`
 
-1. Reads `id` from params.
-2. Calls `fetchProduct(id)`.
-3. Add-to-cart calls cart context; redirects to login if unauthenticated.
-
-### `Register.jsx` / `Login.jsx`
-
-- Submit auth payload to backend via `AuthContext`.
-- Handle loading and backend errors.
-- Redirect after successful auth.
+- Loads a single product by route id
+- Supports add-to-cart
 
 ### `Cart.jsx`
 
-- Displays cart items and totals.
-- Supports quantity update, remove, clear cart.
-- Proceeds to `/checkout`.
+- Shows line items and totals
+- Supports quantity updates, remove, clear cart
+- Links the user into checkout
 
-### `Checkout.jsx`
+### `Register.jsx` and `Login.jsx`
 
-- Collects full shipping address + payment method.
-- Calls `createOrder()`.
-- Redirects to `/orders` with created order info.
-
-### `Orders.jsx`
-
-- Loads order history on mount.
-- Displays status, payment status, totals, and order items.
-- Allows cancellation where backend rules permit.
+- Submit credentials through auth context
+- Persist login after success
 
 ### `Profile.jsx`
 
-- Loads profile from context/backend.
-- Updates name/email/password using protected profile endpoint.
+- Fetches and updates the authenticated user's profile
 
 ### Admin Pages
 
-- `AdminDashboard.jsx`: summary cards and navigation.
-- `ManageProducts.jsx`: lists all products in admin mode.
-- `EditProduct.jsx`: loads, edits, and updates product.
-- `AddProduct.jsx`: validates and creates product.
+- `AddProduct.jsx`
+- `AdminDashboard.jsx`
+- `ManageProducts.jsx`
+- `EditProduct.jsx`
 
-## 9) Navbar Behavior: `src/Components/Nav.jsx`
+These pages still focus on product management rather than order management.
 
-Unauthenticated:
+## 11) Current Requirements and Notes
 
-- Home
-- Login
-- Register
-
-Authenticated:
-
-- Home
-- Cart (with item count)
-- Orders
-- Profile
-- Logout
-
-Admin additional links:
-
-- Add Product
-- Admin Dashboard
-
-## 10) Current Backend-Limited Gaps
-
-- Full admin orders management UI is limited by absence of a backend "list all orders" endpoint.
-- Full admin users management UI is limited by absence of a backend "list all users" endpoint.
+- `VITE_API_BASE_URL` should point at the backend server.
+- `VITE_STRIPE_PUBLISHABLE_KEY` is required for the checkout page to run Stripe test payments.
+- The frontend only treats a payment as complete after Stripe confirms it and the backend accepts the matching payment intent.
+- Order history now surfaces payment metadata so the fake Stripe flow is visible after checkout.

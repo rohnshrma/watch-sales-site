@@ -1,7 +1,10 @@
 import { useContext, useReducer, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
+import { loadStripe } from "@stripe/stripe-js";
 import OrderContext from "../context/OrderContext";
 import CartContext from "../context/CartContext";
+import AuthContext from "../context/AuthContext";
 
 const initialState = {
   street: "",
@@ -9,7 +12,7 @@ const initialState = {
   state: "",
   zipCode: "",
   country: "",
-  paymentMethod: "upi",
+  paymentMethod: "stripe",
 };
 
 const checkoutReducer = (state, action) => {
@@ -22,12 +25,33 @@ const checkoutReducer = (state, action) => {
   return state;
 };
 
-const Checkout = () => {
+const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "";
+const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : null;
+
+const cardElementOptions = {
+  style: {
+    base: {
+      fontSize: "16px",
+      color: "#212529",
+      "::placeholder": {
+        color: "#6c757d",
+      },
+    },
+    invalid: {
+      color: "#dc3545",
+    },
+  },
+};
+
+const CheckoutForm = () => {
   const [state, dispatch] = useReducer(checkoutReducer, initialState);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { createOrder } = useContext(OrderContext);
-  const { cartItems } = useContext(CartContext);
+  const stripe = useStripe();
+  const elements = useElements();
+  const { createPaymentIntent, createOrder } = useContext(OrderContext);
+  const { cartItems, total } = useContext(CartContext);
+  const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const changeHandler = (e) => {
@@ -41,24 +65,68 @@ const Checkout = () => {
       return;
     }
 
+    if (!stripe || !elements) {
+      setError("Stripe has not loaded yet");
+      return;
+    }
+
     setLoading(true);
     setError("");
     try {
+      const shippingAddress = {
+        street: state.street,
+        city: state.city,
+        state: state.state,
+        zipCode: state.zipCode,
+        country: state.country,
+      };
+
+      const paymentIntent = await createPaymentIntent({
+        shippingAddress,
+      });
+
+      const cardElement = elements.getElement(CardElement);
+      if (!cardElement) {
+        throw new Error("Card form is not ready");
+      }
+
+      const confirmation = await stripe.confirmCardPayment(
+        paymentIntent.clientSecret,
+        {
+          payment_method: {
+            card: cardElement,
+            billing_details: {
+              name: user?.name || "Watch Store User",
+              email: user?.email || "",
+              address: {
+                line1: state.street,
+                city: state.city,
+                state: state.state,
+                postal_code: state.zipCode,
+              },
+            },
+          },
+        }
+      );
+
+      if (confirmation.error) {
+        throw new Error(confirmation.error.message || "Stripe payment failed");
+      }
+
+      if (confirmation.paymentIntent?.status !== "succeeded") {
+        throw new Error("Payment was not completed successfully");
+      }
+
       const order = await createOrder({
-        shippingAddress: {
-          street: state.street,
-          city: state.city,
-          state: state.state,
-          zipCode: state.zipCode,
-          country: state.country,
-        },
-        paymentMethod: state.paymentMethod,
+        shippingAddress,
+        paymentMethod: "stripe",
+        paymentIntentId: confirmation.paymentIntent.id,
       });
       navigate("/orders", {
         state: { createdOrderId: order._id },
       });
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to create order");
+      setError(err.response?.data?.message || err.message || "Failed to complete payment");
     } finally {
       setLoading(false);
     }
@@ -68,6 +136,10 @@ const Checkout = () => {
     <div className="container mt-5">
       <h2 className="mb-4">Checkout</h2>
       {error ? <div className="alert alert-danger">{error}</div> : null}
+      <div className="alert alert-info">
+        Use Stripe test card <strong>4242 4242 4242 4242</strong>, any future expiry,
+        any 3-digit CVC, and any postal code.
+      </div>
       <form onSubmit={submitHandler}>
         <div className="form-group">
           <input
@@ -130,18 +202,45 @@ const Checkout = () => {
             name="paymentMethod"
             value={state.paymentMethod}
             onChange={changeHandler}
+            disabled
           >
-            <option value="upi">UPI</option>
-            <option value="credit-card">Credit Card</option>
-            <option value="debit-card">Debit Card</option>
-            <option value="wallet">Wallet</option>
+            <option value="stripe">Stripe Test Mode</option>
           </select>
         </div>
+        <div className="form-group">
+          <label className="font-weight-bold">Card Details</label>
+          <div className="form-control" style={{ paddingTop: "12px", height: "auto" }}>
+            <CardElement options={cardElementOptions} />
+          </div>
+        </div>
+        <div className="mb-3">
+          <strong>Total:</strong> ₹{Number(total).toLocaleString("en-IN")}
+        </div>
         <button className="btn btn-success" disabled={loading}>
-          {loading ? "Placing order..." : "Place Order"}
+          {loading ? "Processing payment..." : "Pay and Place Order"}
         </button>
       </form>
     </div>
+  );
+};
+
+const Checkout = () => {
+  if (!stripePromise) {
+    return (
+      <div className="container mt-5">
+        <h2 className="mb-4">Checkout</h2>
+        <div className="alert alert-warning mb-0">
+          Set <code>VITE_STRIPE_PUBLISHABLE_KEY</code> in the frontend environment to
+          enable Stripe test payments.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Elements stripe={stripePromise}>
+      <CheckoutForm />
+    </Elements>
   );
 };
 

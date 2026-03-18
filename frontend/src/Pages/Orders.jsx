@@ -49,14 +49,25 @@ const Orders = () => {
                 <h5>Order #{order._id}</h5>
                 <p className="mb-1">Status: {order.status}</p>
                 <p className="mb-1">Payment: {order.paymentStatus}</p>
+                <p className="mb-1">Method: {order.paymentMethod}</p>
                 <p className="mb-0">
                   Total: ₹{Number(order.total).toLocaleString("en-IN")}
                 </p>
+                {order.paymentIntentId ? (
+                  <small className="text-muted d-block mt-2">
+                    Stripe Payment ID: {order.paymentIntentId}
+                  </small>
+                ) : null}
               </div>
               <div className="text-right mt-2 mt-md-0">
                 <small className="text-muted d-block mb-2">
                   {new Date(order.createdAt).toLocaleString()}
                 </small>
+                {order.paidAt ? (
+                  <small className="text-success d-block mb-2">
+                    Paid at: {new Date(order.paidAt).toLocaleString()}
+                  </small>
+                ) : null}
                 <button
                   className="btn btn-outline-danger btn-sm"
                   onClick={() => onCancel(order._id)}

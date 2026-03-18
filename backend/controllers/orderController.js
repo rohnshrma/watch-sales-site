@@ -1,5 +1,6 @@
 import Order from "../models/order.js";
 import Cart from "../models/cart.js";
+import { getStripeClient, getStripeCurrency } from "../utils/stripe.js";
 
 const allowedStatuses = [
   "pending",
@@ -15,10 +16,100 @@ const isOwnerOrAdmin = (order, user) => {
   return order.user.toString() === user.id || user.role === "admin";
 };
 
+const validateShippingAddress = (shippingAddress) => {
+  if (!shippingAddress) {
+    return "Shipping address is required";
+  }
+
+  const { street, city, state, zipCode, country } = shippingAddress;
+  if (!street || !city || !state || !zipCode || !country) {
+    return "Complete shipping address is required";
+  }
+
+  return null;
+};
+
+const getCartForCheckout = async (userId) => {
+  const cart = await Cart.findOne({ user: userId });
+
+  if (!cart || cart.cartItems.length === 0) {
+    return null;
+  }
+
+  return cart;
+};
+
+const getAmountInSmallestUnit = (amount) => {
+  return Math.round(Number(amount) * 100);
+};
+
+const buildStripeMetadata = (userId, cart) => {
+  return {
+    userId: userId.toString(),
+    cartTotal: String(Number(cart.total)),
+    itemCount: String(cart.cartItems.length),
+  };
+};
+
+export const CREATE_STRIPE_PAYMENT_INTENT = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { shippingAddress } = req.body;
+
+    const shippingError = validateShippingAddress(shippingAddress);
+    if (shippingError) {
+      return res.status(400).json({
+        status: "fail",
+        message: shippingError,
+        data: null,
+      });
+    }
+
+    const cart = await getCartForCheckout(userId);
+    if (!cart) {
+      return res.status(400).json({
+        status: "fail",
+        message: "Cart is empty",
+        data: null,
+      });
+    }
+
+    const stripe = getStripeClient();
+    const currency = getStripeCurrency();
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: getAmountInSmallestUnit(cart.total),
+      currency,
+      payment_method_types: ["card"],
+      metadata: buildStripeMetadata(userId, cart),
+      description: `Watch store order for user ${userId}`,
+    });
+
+    return res.status(200).json({
+      status: "success",
+      message: "Stripe payment intent created successfully",
+      data: {
+        paymentIntentId: paymentIntent.id,
+        clientSecret: paymentIntent.client_secret,
+        amount: cart.total,
+        currency,
+      },
+    });
+  } catch (error) {
+    const statusCode = error.type?.startsWith("Stripe") ? 400 : 500;
+
+    return res.status(statusCode).json({
+      status: "fail",
+      message: error.message,
+      data: null,
+    });
+  }
+};
+
 export const CREATE_ORDER = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { shippingAddress, paymentMethod } = req.body;
+    const { shippingAddress, paymentMethod, paymentIntentId } = req.body;
 
     if (!shippingAddress || !paymentMethod) {
       return res.status(400).json({
@@ -28,17 +119,17 @@ export const CREATE_ORDER = async (req, res) => {
       });
     }
 
-    const { street, city, state, zipCode, country } = shippingAddress;
-    if (!street || !city || !state || !zipCode || !country) {
+    const shippingError = validateShippingAddress(shippingAddress);
+    if (shippingError) {
       return res.status(400).json({
         status: "fail",
-        message: "Complete shipping address is required",
+        message: shippingError,
         data: null,
       });
     }
 
-    const cart = await Cart.findOne({ user: userId });
-    if (!cart || cart.cartItems.length === 0) {
+    const cart = await getCartForCheckout(userId);
+    if (!cart) {
       return res.status(400).json({
         status: "fail",
         message: "Cart is empty",
@@ -46,7 +137,7 @@ export const CREATE_ORDER = async (req, res) => {
       });
     }
 
-    const order = await Order.create({
+    let orderPayload = {
       user: userId,
       orderItems: cart.cartItems,
       shippingAddress,
@@ -54,7 +145,79 @@ export const CREATE_ORDER = async (req, res) => {
       paymentMethod,
       status: "pending",
       paymentStatus: "pending",
-    });
+    };
+
+    if (paymentMethod === "stripe") {
+      if (!paymentIntentId) {
+        return res.status(400).json({
+          status: "fail",
+          message: "paymentIntentId is required for Stripe payments",
+          data: null,
+        });
+      }
+
+      const existingOrder = await Order.findOne({ paymentIntentId });
+      if (existingOrder) {
+        return res.status(409).json({
+          status: "fail",
+          message: "An order has already been created for this payment",
+          data: existingOrder,
+        });
+      }
+
+      const stripe = getStripeClient();
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+      if (!paymentIntent) {
+        return res.status(404).json({
+          status: "fail",
+          message: "Stripe payment intent not found",
+          data: null,
+        });
+      }
+
+      if (paymentIntent.metadata?.userId !== userId.toString()) {
+        return res.status(403).json({
+          status: "fail",
+          message: "Payment intent does not belong to the current user",
+          data: null,
+        });
+      }
+
+      if (paymentIntent.status !== "succeeded") {
+        return res.status(400).json({
+          status: "fail",
+          message: "Stripe payment has not been completed",
+          data: null,
+        });
+      }
+
+      const expectedAmount = getAmountInSmallestUnit(cart.total);
+      if (paymentIntent.amount !== expectedAmount) {
+        return res.status(400).json({
+          status: "fail",
+          message: "Paid amount does not match the current cart total",
+          data: null,
+        });
+      }
+
+      orderPayload = {
+        ...orderPayload,
+        status: "confirmed",
+        paymentStatus: "completed",
+        paymentIntentId: paymentIntent.id,
+        paidAt: new Date(),
+        paymentResult: {
+          id: paymentIntent.id,
+          status: paymentIntent.status,
+          currency: paymentIntent.currency,
+          amount: paymentIntent.amount,
+          paymentMethodTypes: paymentIntent.payment_method_types,
+        },
+      };
+    }
+
+    const order = await Order.create(orderPayload);
 
     cart.cartItems = [];
     cart.total = 0;

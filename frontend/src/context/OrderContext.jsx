@@ -45,6 +45,13 @@ export const OrderProvider = ({ children }) => {
     return res.data.data;
   };
 
+  const createPaymentIntent = async (payload) => {
+    const res = await api.post("/api/orders/payment-intent", payload, {
+      headers: authHeaders,
+    });
+    return res.data.data;
+  };
+
   const cancelOrder = async (orderId) => {
     const res = await api.put(
       `/api/orders/${orderId}/cancel`,
@@ -60,6 +67,7 @@ export const OrderProvider = ({ children }) => {
         orders: state.orders,
         loading: state.loading,
         fetchOrders,
+        createPaymentIntent,
         createOrder,
         cancelOrder,
       }}

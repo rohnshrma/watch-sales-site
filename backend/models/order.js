@@ -44,13 +44,29 @@ const orderSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["credit-card", "debit-card", "upi", "wallet"],
+      enum: ["credit-card", "debit-card", "upi", "wallet", "stripe"],
       required: true,
     },
     paymentStatus: {
       type: String,
       enum: ["pending", "completed", "failed"],
       default: "pending",
+    },
+    paymentIntentId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    paidAt: {
+      type: Date,
+      default: null,
+    },
+    paymentResult: {
+      id: String,
+      status: String,
+      currency: String,
+      amount: Number,
+      paymentMethodTypes: [String],
     },
   },
   { timestamps: true }

@@ -1,189 +1,302 @@
 # Backend Flow Explanation
 
-This document explains how requests move through the backend and what each server, route, controller, and model does.
+This document describes the backend flow for the `cart_user_order_payments` branch, including the cart pipeline, order lifecycle, and Stripe test payment integration.
 
 ## 1) Server Boot Flow (`server.js`)
-1. Environment variables are loaded using `dotenv`.
-2. MongoDB connection is initialized with `connectDB()` from `config/db.js`.
-3. Express app is created and middleware is attached:
-   - `cors()` for cross-origin requests.
-   - `express.json()` for JSON body parsing.
-   - `morgan("dev")` for request logging.
+
+1. `dotenv` loads environment variables.
+2. `connectDB()` connects Mongoose to `MONGO_URI`.
+3. Express middleware is registered:
+   - `cors()`
+   - `express.json()`
+   - `morgan("dev")`
 4. Route groups are mounted:
-   - `/api/products` -> product routes (public)
-   - `/api/cart` -> cart routes (protected with `protect`)
-   - `/api/orders` -> order routes (protected with `protect`)
-   - `/api/users` -> user routes (mixed public/protected)
-5. Server starts on `process.env.PORT || 3000`.
+   - `/api/products` -> public product routes
+   - `/api/cart` -> protected cart routes
+   - `/api/orders` -> protected order + payment routes
+   - `/api/users` -> mixed auth/profile routes
+5. Server listens on `process.env.PORT || 3000`.
 
-## 2) Database Connection (`config/db.js`)
-- Uses `mongoose.connect(process.env.MONGO_URI)`.
-- On success, prints DB host.
-- On failure, logs error and exits process.
+## 2) Environment Variables
 
-## 3) Auth Flow
+Current backend behavior depends on these values:
 
-### JWT Generation (`utils/generateToken.js`)
-- `generateToken(id)` signs `{ id }` with `JWT_SECRET`.
-- Token expiry: `30d`.
+- `PORT`
+- `MONGO_URI`
+- `JWT_SECRET`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_CURRENCY` (optional, defaults to `inr`)
+
+If `STRIPE_SECRET_KEY` is missing, Stripe payment-intent creation and Stripe-backed order creation will fail with a configuration error.
+
+## 3) Authentication Flow
+
+### Token Utility (`utils/generateToken.js`)
+
+- Signs `{ id }` with `JWT_SECRET`
+- Token expiry: `30d`
 
 ### Auth Middleware (`middlewares/authMiddleware.js`)
+
 1. Reads `Authorization` header.
 2. Expects `Bearer <token>`.
-3. Verifies token with `JWT_SECRET`.
-4. Loads user by decoded id and attaches to `req.user` (without password).
-5. Calls `next()` for valid tokens.
-6. Returns `401` for invalid/missing token.
-7. `isAdmin` middleware checks `req.user.role === "admin"` and returns `403` for non-admin users.
+3. Verifies token.
+4. Loads the user from MongoDB.
+5. Attaches the user to `req.user`.
+6. Rejects invalid or missing tokens with `401`.
 
-## 4) Route -> Controller Mapping
+### Admin Gate
 
-## Product (`routes/productRoutes.js`)
+- `isAdmin` checks `req.user.role === "admin"`
+- Rejects non-admin requests with `403`
+
+## 4) Route Map
+
+### Product Routes (`routes/productRoutes.js`)
+
 - `GET /api/products` -> `GET_PRODUCTS`
 - `POST /api/products` -> `ADD_PRODUCT`
 - `GET /api/products/:id` -> `GET_SINGLE_PRODUCT`
 - `PUT /api/products/:id` -> `EDIT_PRODUCT`
 - `DELETE /api/products/:id` -> `DELETE_PRODUCT`
 
-## Cart (`routes/cartRoutes.js`) [Protected]
+### Cart Routes (`routes/cartRoutes.js`) [Protected]
+
 - `POST /api/cart` -> `ADD_TO_CART`
 - `GET /api/cart` -> `GET_USER_CART`
 - `PUT /api/cart` -> `UPDATE_CART_ITEM`
 - `DELETE /api/cart/clear` -> `CLEAR_CART`
 - `DELETE /api/cart/:productId` -> `REMOVE_CART_ITEM`
 
-## User (`routes/userRoutes.js`)
+### User Routes (`routes/userRoutes.js`)
+
 - `POST /api/users/register` -> `REGISTER`
 - `POST /api/users/login` -> `LOGIN`
-- `GET /api/users/profile` -> `GET_USER_PROFILE` (protected)
-- `PUT /api/users/profile` -> `UPDATE_USER_PROFILE` (protected)
-- `DELETE /api/users/:id` -> `DELETE_USER` (protected)
+- `GET /api/users/profile` -> `GET_USER_PROFILE`
+- `PUT /api/users/profile` -> `UPDATE_USER_PROFILE`
+- `DELETE /api/users/:id` -> `DELETE_USER`
 
-## Order (`routes/orderRoutes.js`) [Protected]
+### Order + Payment Routes (`routes/orderRoutes.js`) [Protected]
+
+- `POST /api/orders/payment-intent` -> `CREATE_STRIPE_PAYMENT_INTENT`
 - `POST /api/orders` -> `CREATE_ORDER`
 - `GET /api/orders` -> `GET_USER_ORDERS`
 - `GET /api/orders/:orderId` -> `GET_ORDER_BY_ID`
 - `PUT /api/orders/:orderId/cancel` -> `CANCEL_ORDER`
-- `PUT /api/orders/:orderId/status` -> `UPDATE_ORDER_STATUS` (admin-only via `isAdmin`)
+- `PUT /api/orders/:orderId/status` -> `UPDATE_ORDER_STATUS` (admin only)
 
-## 5) Controller Responsibilities
+## 5) Cart Flow
 
-## Product Controller (`controllers/productController.js`)
-- `GET_PRODUCTS`: Fetches all products.
-- `ADD_PRODUCT`: Validates required fields and creates a product.
-- `GET_SINGLE_PRODUCT`: Finds one product by id.
-- `DELETE_PRODUCT`: Checks product existence and deletes it.
-- `EDIT_PRODUCT`: Updates product fields partially and saves.
+### `ADD_TO_CART`
 
-## Cart Controller (`controllers/cartController.js`)
-- `ADD_TO_CART`:
-  - Validates `productId` and positive integer `quantity`.
-  - Validates product exists.
-  - Finds or creates user cart.
-  - Increments quantity if item exists; otherwise pushes new item snapshot.
-  - Recalculates `total`.
-- `GET_USER_CART`:
-  - Returns user cart if found.
-  - Returns empty cart shape if not found.
-- `UPDATE_CART_ITEM`:
-  - Validates `productId` and non-negative integer `quantity`.
-  - Finds cart and item by `productId`.
-  - Updates quantity and recalculates total.
-  - If `quantity = 0`, removes the item from cart.
-- `REMOVE_CART_ITEM`:
-  - Removes item by product id and recalculates total.
-- `CLEAR_CART`:
-  - Empties all cart items and resets total.
-  - If cart does not exist, returns `Cart already empty`.
+1. Validates `productId`.
+2. Validates `quantity` as a positive integer.
+3. Loads the product snapshot from MongoDB.
+4. Finds or creates the current user's cart.
+5. If item already exists, increments quantity.
+6. Otherwise pushes a cart snapshot item containing `product`, `name`, `imageUrl`, `price`, and `quantity`.
+7. Recomputes `cart.total`.
+8. Saves and returns the updated cart.
 
-## User Controller (`controllers/userController.js`)
-- `REGISTER`:
-  - Validates required fields.
-  - Checks duplicate email.
-  - Creates user.
-  - Returns user info + JWT token.
-- `LOGIN`:
-  - Validates required fields.
-  - Finds user by email.
-  - Validates password via `matchPassword`.
-  - Returns user info + JWT token.
-- `GET_USER_PROFILE`:
-  - Returns authenticated user's profile (without password).
-- `UPDATE_USER_PROFILE`:
-  - Updates authenticated user's name/email/password.
-  - Checks email uniqueness before update.
-  - Returns updated user data + new token.
-- `DELETE_USER`:
-  - Deletes user by id.
-  - Authorization: user can delete self, admin can delete any user.
+### `GET_USER_CART`
 
-## Order Controller (`controllers/orderController.js`)
-- `CREATE_ORDER`:
-  - Validates `shippingAddress` and `paymentMethod`.
-  - Requires complete shipping address (`street`, `city`, `state`, `zipCode`, `country`).
-  - Loads current user cart.
-  - If cart has items, creates order using cart snapshot.
-  - Clears cart after successful order creation.
-- `GET_USER_ORDERS`:
-  - Returns all logged-in user's orders.
-  - Populates `orderItems.product`.
-  - Sorts newest first.
-- `GET_ORDER_BY_ID`:
-  - Fetches order by id with populated user/product info.
-  - Only owner or admin can view.
-- `CANCEL_ORDER`:
-  - Only owner or admin can cancel.
-  - Prevents cancellation once status is `shipped`, `delivered`, or already `cancelled`.
-- `UPDATE_ORDER_STATUS` (Admin):
-  - Updates `status` and/or `paymentStatus`.
-  - Validates enum values before save.
+- Returns the populated cart if it exists.
+- Returns `{ cartItems: [], total: 0 }` if it does not.
 
-## 6) Model Design
+### `UPDATE_CART_ITEM`
 
-## Product Model (`models/product.js`)
-- Fields: `name`, `price`, `description`, `imageUrl`.
-- Constraints:
-  - `name` unique, required, min length 5.
-  - `price` stored as number, minimum `0`.
-  - `description` min length 20.
-  - timestamps enabled.
+1. Validates `productId`.
+2. Validates `quantity` as a non-negative integer.
+3. Finds the cart item.
+4. Removes the item if `quantity === 0`, otherwise updates its quantity.
+5. Recomputes `total`.
 
-## User Model (`models/user.js`)
-- Fields: `name`, `email`, `password`, `role`.
-- `role` enum: `user | admin`.
-- `matchPassword` method compares plaintext vs hash.
-- Includes pre-save password hashing hook (`function` context for correct `this`).
+### `REMOVE_CART_ITEM`
 
-## Cart Model (`models/cart.js`)
-- One cart per user (`user` unique).
-- `cartItems[]` includes:
-  - `product` ref
-  - item snapshot fields (`name`, `imageUrl`, `price`, `quantity`)
-- cart item validations:
-  - `name`, `imageUrl`, `price` are required
-  - `price >= 0`
-  - `quantity >= 1`
-- `total` stores cart amount.
-- `total >= 0`.
+- Removes one cart item by `productId`
+- Recomputes `total`
 
-## Order Model (`models/order.js`)
-- Linked to `user`.
-- `orderItems[]` stores copied cart item snapshot.
-- `shippingAddress` object.
-- `total`, `paymentMethod`, `paymentStatus`, `status`.
-- Timestamps enabled.
+### `CLEAR_CART`
 
-## 7) End-to-End Lifecycle
-1. User registers or logs in and gets JWT token.
-2. User fetches products.
-3. User adds products to cart (`/api/cart` with token).
-4. User can update/remove/clear cart.
-5. User creates order (`/api/orders`) with shipping + payment method.
-6. Backend copies cart items to order, sets statuses to pending, clears cart.
-7. User fetches order history from `/api/orders`.
+- Empties `cartItems`
+- Resets `total` to `0`
 
-## 8) Notes for Current Implementation
-- Cart and order routes are protected at mount level in `server.js`.
-- User `profile` routes are additionally protected at route level.
-- Order admin status route is protected by `isAdmin` middleware.
-- Error handling is inline inside each controller.
+## 6) Stripe Utility Flow (`utils/stripe.js`)
+
+- `getStripeClient()` lazily creates and reuses a Stripe SDK client
+- Throws immediately if `STRIPE_SECRET_KEY` is missing
+- `getStripeCurrency()` returns `STRIPE_CURRENCY` or `inr`
+
+This keeps Stripe configuration in one place and prevents controller code from creating multiple clients.
+
+## 7) Order and Payment Flow
+
+### A. Create Stripe Payment Intent (`CREATE_STRIPE_PAYMENT_INTENT`)
+
+Request:
+
+- Requires authenticated user
+- Requires complete `shippingAddress`
+- Uses the current cart
+
+Flow:
+
+1. Validates shipping address fields.
+2. Loads the cart for the current user.
+3. Rejects empty carts.
+4. Creates a Stripe PaymentIntent with:
+   - `amount = cart.total * 100`
+   - `currency = STRIPE_CURRENCY || "inr"`
+   - `payment_method_types = ["card"]`
+   - metadata containing user id, cart total, and item count
+5. Returns:
+   - `paymentIntentId`
+   - `clientSecret`
+   - `amount`
+   - `currency`
+
+This endpoint does not create an order yet. It only prepares the Stripe test payment.
+
+### B. Create Order (`CREATE_ORDER`)
+
+Request body:
+
+- `shippingAddress`
+- `paymentMethod`
+- optional `paymentIntentId`
+
+Shared flow:
+
+1. Validates shipping address.
+2. Loads the current cart.
+3. Rejects empty carts.
+4. Builds an order payload from the cart snapshot.
+
+#### If `paymentMethod !== "stripe"`
+
+- Creates the order directly
+- Sets:
+  - `status = "pending"`
+  - `paymentStatus = "pending"`
+
+#### If `paymentMethod === "stripe"`
+
+Additional verification happens before the order is written:
+
+1. Requires `paymentIntentId`.
+2. Rejects duplicate order creation for the same payment intent.
+3. Retrieves the PaymentIntent from Stripe.
+4. Verifies the PaymentIntent belongs to the current user using metadata.
+5. Verifies `paymentIntent.status === "succeeded"`.
+6. Verifies the Stripe amount exactly matches the current cart total.
+7. Creates the order with:
+   - `status = "confirmed"`
+   - `paymentStatus = "completed"`
+   - `paymentIntentId`
+   - `paidAt`
+   - `paymentResult` snapshot
+
+After successful order creation, the cart is cleared.
+
+### C. Get User Orders (`GET_USER_ORDERS`)
+
+- Fetches orders for the logged-in user only
+- Populates `orderItems.product`
+- Sorts newest first
+
+### D. Get Order by Id (`GET_ORDER_BY_ID`)
+
+1. Loads the order
+2. Populates owner + product data
+3. Allows access only to:
+   - the order owner
+   - an admin
+
+### E. Cancel Order (`CANCEL_ORDER`)
+
+- Owner or admin can cancel
+- Rejected once status is:
+  - `shipped`
+  - `delivered`
+  - `cancelled`
+
+### F. Admin Order Updates (`UPDATE_ORDER_STATUS`)
+
+Admin can update:
+
+- `status`
+- `paymentStatus`
+
+Both values are validated against allowed enums before save.
+
+## 8) Data Model Summary
+
+### Product (`models/product.js`)
+
+- `name`
+- `price`
+- `description`
+- `imageUrl`
+- timestamps
+
+### User (`models/user.js`)
+
+- `name`
+- `email`
+- `password`
+- `role`
+
+Includes password hashing and `matchPassword`.
+
+### Cart (`models/cart.js`)
+
+- one cart per user
+- `cartItems[]` snapshot structure:
+  - `product`
+  - `name`
+  - `imageUrl`
+  - `price`
+  - `quantity`
+- `total`
+
+### Order (`models/order.js`)
+
+- `user`
+- `orderItems[]`
+- `shippingAddress`
+- `total`
+- `status`
+- `paymentMethod`
+- `paymentStatus`
+- `paymentIntentId`
+- `paidAt`
+- `paymentResult`
+- timestamps
+
+`paymentResult` stores a saved Stripe summary:
+
+- Stripe id
+- Stripe status
+- currency
+- amount
+- payment method types
+
+## 9) End-to-End Checkout Lifecycle
+
+1. User logs in and gets a JWT.
+2. User adds products to cart.
+3. Frontend collects shipping details on checkout.
+4. Frontend calls `POST /api/orders/payment-intent`.
+5. Backend creates a Stripe PaymentIntent for the current cart total.
+6. Frontend confirms the payment using Stripe test card details.
+7. Frontend calls `POST /api/orders` with `paymentMethod: "stripe"` and the successful `paymentIntentId`.
+8. Backend verifies the Stripe payment intent and creates the order.
+9. Backend clears the cart.
+10. User sees the order in `/api/orders` history with completed payment metadata.
+
+## 10) Important Current Notes
+
+- Order creation is protected from fake client-side success because the backend re-checks Stripe before creating a Stripe-backed order.
+- Cart snapshots are copied into orders so later product edits do not break historical orders.
+- Cancelling an order does not perform Stripe refunds in this branch.
+- Error handling remains inline in controllers rather than using centralized middleware.
