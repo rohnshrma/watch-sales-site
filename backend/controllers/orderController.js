@@ -259,6 +259,27 @@ export const GET_USER_ORDERS = async (req, res) => {
   }
 };
 
+export const GET_ALL_ORDERS = async (req, res) => {
+  try {
+    const orders = await Order.find({})
+      .populate("user", "name email role")
+      .populate("orderItems.product")
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      status: "success",
+      message: "All orders fetched successfully",
+      data: orders,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: "fail",
+      message: error.message,
+      data: null,
+    });
+  }
+};
+
 export const GET_ORDER_BY_ID = async (req, res) => {
   try {
     const { orderId } = req.params;

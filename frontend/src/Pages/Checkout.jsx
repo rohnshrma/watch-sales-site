@@ -68,7 +68,7 @@ const CheckoutForm = () => {
   const stripe = useStripe();
   const elements = useElements();
   const { createPaymentIntent, createOrder } = useContext(OrderContext);
-  const { cartItems, total } = useContext(CartContext);
+  const { cartItems, total, fetchCart } = useContext(CartContext);
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -153,6 +153,7 @@ const CheckoutForm = () => {
         paymentMethod: "stripe",
         paymentIntentId: confirmation.paymentIntent.id,
       });
+      await fetchCart();
       navigate("/orders", {
         state: { createdOrderId: order._id },
       });
@@ -164,93 +165,99 @@ const CheckoutForm = () => {
   };
 
   return (
-    <div className="container mt-5">
-      <h2 className="mb-4">Checkout</h2>
-      {error ? <div className="alert alert-danger">{error}</div> : null}
-      <div className="alert alert-info">
-        Use Stripe test card <strong>4242 4242 4242 4242</strong>, any future expiry,
-        any 3-digit CVC, and any postal code.
-      </div>
-      <form onSubmit={submitHandler}>
-        <div className="form-group">
-          <input
-            type="text"
-            className="form-control"
-            name="street"
-            placeholder="Street"
-            value={state.street}
-            onChange={changeHandler}
-            required
-          />
+    <div className="page-shell page-shell--narrow">
+      <div className="form-shell">
+        <div className="page-header page-header--compact">
+          <p className="page-eyebrow">Checkout</p>
+          <h2>Complete your order</h2>
+          <p className="page-subtext">Enter shipping details and confirm your Stripe payment.</p>
         </div>
-        <div className="form-group">
-          <input
-            type="text"
-            className="form-control"
-            name="city"
-            placeholder="City"
-            value={state.city}
-            onChange={changeHandler}
-            required
-          />
+        {error ? <div className="alert alert-danger">{error}</div> : null}
+        <div className="alert alert-info">
+          Use Stripe test card <strong>4242 4242 4242 4242</strong>, any future expiry,
+          any 3-digit CVC, and any postal code.
         </div>
-        <div className="form-group">
-          <input
-            type="text"
-            className="form-control"
-            name="state"
-            placeholder="State"
-            value={state.state}
-            onChange={changeHandler}
-            required
-          />
-        </div>
-        <div className="form-group">
-          <input
-            type="text"
-            className="form-control"
-            name="zipCode"
-            placeholder="Zip Code"
-            value={state.zipCode}
-            onChange={changeHandler}
-            required
-          />
-        </div>
-        <div className="form-group">
-          <input
-            type="text"
-            className="form-control"
-            name="country"
-            placeholder="Country code (e.g. IN)"
-            value={state.country}
-            onChange={changeHandler}
-            required
-          />
-        </div>
-        <div className="form-group">
-          <select
-            className="form-control"
-            name="paymentMethod"
-            value={state.paymentMethod}
-            onChange={changeHandler}
-            disabled
-          >
-            <option value="stripe">Stripe Test Mode</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <label className="font-weight-bold">Card Details</label>
-          <div className="form-control" style={{ paddingTop: "12px", height: "auto" }}>
-            <CardElement options={cardElementOptions} />
+        <form onSubmit={submitHandler} className="form-stack">
+          <div className="form-group">
+            <input
+              type="text"
+              className="form-control app-input"
+              name="street"
+              placeholder="Street"
+              value={state.street}
+              onChange={changeHandler}
+              required
+            />
           </div>
-        </div>
-        <div className="mb-3">
-          <strong>Total:</strong> ₹{Number(total).toLocaleString("en-IN")}
-        </div>
-        <button className="btn btn-success" disabled={loading}>
-          {loading ? "Processing payment..." : "Pay and Place Order"}
-        </button>
-      </form>
+          <div className="form-group">
+            <input
+              type="text"
+              className="form-control app-input"
+              name="city"
+              placeholder="City"
+              value={state.city}
+              onChange={changeHandler}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <input
+              type="text"
+              className="form-control app-input"
+              name="state"
+              placeholder="State"
+              value={state.state}
+              onChange={changeHandler}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <input
+              type="text"
+              className="form-control app-input"
+              name="zipCode"
+              placeholder="Zip Code"
+              value={state.zipCode}
+              onChange={changeHandler}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <input
+              type="text"
+              className="form-control app-input"
+              name="country"
+              placeholder="Country code (e.g. IN)"
+              value={state.country}
+              onChange={changeHandler}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <select
+              className="form-control app-input"
+              name="paymentMethod"
+              value={state.paymentMethod}
+              onChange={changeHandler}
+              disabled
+            >
+              <option value="stripe">Stripe Test Mode</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="font-weight-bold mb-2">Card Details</label>
+            <div className="checkout-card-input">
+              <CardElement options={cardElementOptions} />
+            </div>
+          </div>
+          <div className="checkout-total">
+            <strong>Total:</strong> ₹{Number(total).toLocaleString("en-IN")}
+          </div>
+          <button className="btn app-btn app-btn--primary app-btn--block" disabled={loading}>
+            {loading ? "Processing payment..." : "Pay and Place Order"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };
@@ -258,11 +265,13 @@ const CheckoutForm = () => {
 const Checkout = () => {
   if (!stripePromise) {
     return (
-      <div className="container mt-5">
-        <h2 className="mb-4">Checkout</h2>
-        <div className="alert alert-warning mb-0">
-          Set <code>VITE_STRIPE_PUBLISHABLE_KEY</code> in the frontend environment to
-          enable Stripe test payments.
+      <div className="page-shell page-shell--narrow">
+        <div className="form-shell">
+          <h2 className="mb-4">Checkout</h2>
+          <div className="alert alert-warning mb-0">
+            Set <code>VITE_STRIPE_PUBLISHABLE_KEY</code> in the frontend environment to
+            enable Stripe test payments.
+          </div>
         </div>
       </div>
     );

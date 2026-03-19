@@ -33,50 +33,56 @@ const Register = () => {
   };
 
   return (
-    <div className="register container mt-5 ">
-      <h2 className="mb-4">Register</h2>
-      {error ? <div className="alert alert-danger">{error}</div> : null}
-      <form onSubmit={submitHandler}>
-        <div className="form-group">
-          <input
-            className="form-control"
-            type="text"
-            name="name"
-            placeholder="Enter full name"
-            onChange={changeHandler}
-            value={form.name}
-            required
-          />
+    <div className="page-shell page-shell--narrow">
+      <div className="auth-shell">
+        <div className="page-header page-header--compact">
+          <p className="page-eyebrow">Account</p>
+          <h2>Create your account</h2>
+          <p className="page-subtext">Set up your account to start shopping and tracking orders.</p>
         </div>
-        <div className="form-group">
-          <input
-            className="form-control"
-            type="email"
-            name="email"
-            placeholder="Enter email address"
-            onChange={changeHandler}
-            value={form.email}
-            required
-          />
-        </div>
-        <div className="form-group">
-          <input
-            className="form-control"
-            type="password"
-            name="password"
-            placeholder="Enter password"
-            onChange={changeHandler}
-            value={form.password}
-            required
-          />
-        </div>
-        <button className="btn btn-success" disabled={loading}>
-          {loading ? "Registering..." : "REGISTER"}
-        </button>
-      </form>
-      <p className="mt-3">
-        Already have an account? <Link to="/user/login">Login</Link>
-      </p>
+        {error ? <div className="alert alert-danger">{error}</div> : null}
+        <form onSubmit={submitHandler} className="form-stack">
+          <div className="form-group">
+            <input
+              className="form-control app-input"
+              type="text"
+              name="name"
+              placeholder="Enter full name"
+              onChange={changeHandler}
+              value={form.name}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <input
+              className="form-control app-input"
+              type="email"
+              name="email"
+              placeholder="Enter email address"
+              onChange={changeHandler}
+              value={form.email}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <input
+              className="form-control app-input"
+              type="password"
+              name="password"
+              placeholder="Enter password"
+              onChange={changeHandler}
+              value={form.password}
+              required
+            />
+          </div>
+          <button className="btn app-btn app-btn--primary" disabled={loading}>
+            {loading ? "Registering..." : "Register"}
+          </button>
+        </form>
+        <p className="auth-shell__footer">
+          Already have an account? <Link to="/user/login">Login</Link>
+        </p>
+      </div>
     </div>
   );
 };

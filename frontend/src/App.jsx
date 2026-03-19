@@ -21,77 +21,78 @@ const App = () => {
   return (
     <>
       <Nav />
-
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route
-          path="/add-product"
-          element={
-            <ProtectedRoute requireAdmin={true}>
-              <AddProduct />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/product/:id" element={<ProductPage />} />
-        <Route
-          path="/admin/dashboard"
-          element={
-            <ProtectedRoute requireAdmin={true}>
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/manage-products"
-          element={
-            <ProtectedRoute requireAdmin={true}>
-              <ManageProducts />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/edit-product/:id"
-          element={
-            <ProtectedRoute requireAdmin={true}>
-              <EditProduct />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/user/register" element={<Register />} />
-        <Route path="/user/login" element={<Login />} />
-        <Route
-          path="/cart"
-          element={
-            <ProtectedRoute>
-              <Cart />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/checkout"
-          element={
-            <ProtectedRoute>
-              <Checkout />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/orders"
-          element={
-            <ProtectedRoute>
-              <Orders />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/profile"
-          element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+      <main className="app-shell">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route
+            path="/add-product"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AddProduct />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/product/:id" element={<ProductPage />} />
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/manage-products"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <ManageProducts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/edit-product/:id"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <EditProduct />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/user/register" element={<Register />} />
+          <Route path="/user/login" element={<Login />} />
+          <Route
+            path="/cart"
+            element={
+              <ProtectedRoute>
+                <Cart />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/checkout"
+            element={
+              <ProtectedRoute>
+                <Checkout />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <ProtectedRoute>
+                <Orders />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </main>
 
       {/* <Footer /> */}
     </>

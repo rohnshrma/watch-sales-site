@@ -19,7 +19,7 @@ const ManageProducts = () => {
 
   if (loading) {
     return (
-      <div className="container mt-5 text-center">
+      <div className="page-shell page-shell--center text-center">
         <div className="spinner-border" role="status">
           <span className="sr-only">Loading...</span>
         </div>
@@ -29,10 +29,17 @@ const ManageProducts = () => {
   }
 
   return (
-    <div className="manage-products-page container">
+    <div className="page-shell manage-products-page">
+      <div className="page-header">
+        <div>
+          <p className="page-eyebrow">Admin</p>
+          <h1>Manage Products</h1>
+          <p className="page-subtext">Review, edit, and maintain your full storefront catalog.</p>
+        </div>
+      </div>
       {products.length === 0 ? (
         <div className="empty-state">
-          <h4>📦 No products available yet</h4>
+          <h4>No products available yet</h4>
           <p>Start building your collection by adding your first product!</p>
         </div>
       ) : (

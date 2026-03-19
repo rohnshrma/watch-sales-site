@@ -6,12 +6,13 @@ import CartContext from "../context/CartContext";
 const Nav = () => {
   const { isAuthenticated, isAdmin, user, logout } = useContext(AuthContext);
   const { cartItems } = useContext(CartContext);
+  const firstName = user?.name?.split(" ")[0] || "Profile";
 
   return (
     <nav className="navbar navbar-expand-lg navbar-dark">
       <div className="container">
         <Link className="navbar-brand" to="/">
-          <strong>⌚ Watch Store</strong>
+          <strong>Watch Store</strong>
         </Link>
         <button
           className="navbar-toggler"
@@ -28,42 +29,50 @@ const Nav = () => {
           <ul className="navbar-nav ml-auto">
             <li className="nav-item">
               <Link className="nav-link" to="/">
-                🏠 Home
+                Home
               </Link>
             </li>
             {isAuthenticated ? (
               <>
                 <li className="nav-item">
-                  <Link className="nav-link" to="/cart">
-                    🛒 Cart ({cartItems.length})
-                  </Link>
-                </li>
-                <li className="nav-item">
                   <Link className="nav-link" to="/orders">
-                    📦 Orders
-                  </Link>
-                </li>
-                <li className="nav-item">
-                  <Link className="nav-link" to="/profile">
-                    👤 {user?.name?.split(" ")[0] || "Profile"}
+                    Orders
                   </Link>
                 </li>
                 {isAdmin ? (
                   <>
                     <li className="nav-item">
-                      <Link className="nav-link" to="/add-product">
-                        ➕ Add Product
+                      <Link className="nav-link" to="/admin/dashboard">
+                        Dashboard
                       </Link>
                     </li>
                     <li className="nav-item">
-                      <Link className="nav-link" to="/admin/dashboard">
-                        👨🏻‍💼 ADMIN
+                      <Link className="nav-link" to="/add-product">
+                        Add Product
+                      </Link>
+                    </li>
+                    <li className="nav-item">
+                      <Link className="nav-link nav-user-pill" to="/profile">
+                        {firstName}
                       </Link>
                     </li>
                   </>
-                ) : null}
+                ) : (
+                  <>
+                    <li className="nav-item">
+                      <Link className="nav-link" to="/cart">
+                        Cart ({cartItems.length})
+                      </Link>
+                    </li>
+                    <li className="nav-item">
+                      <Link className="nav-link" to="/profile">
+                        {firstName}
+                      </Link>
+                    </li>
+                  </>
+                )}
                 <li className="nav-item">
-                  <button className="btn btn-sm btn-danger ml-2" onClick={logout}>
+                  <button className="nav-logout-btn" onClick={logout}>
                     Logout
                   </button>
                 </li>
@@ -72,12 +81,12 @@ const Nav = () => {
               <>
                 <li className="nav-item">
                   <Link className="nav-link" to="/user/login">
-                    🔐 Login
+                    Login
                   </Link>
                 </li>
                 <li className="nav-item">
                   <Link className="nav-link" to="/user/register">
-                    📝 Register
+                    Register
                   </Link>
                 </li>
               </>

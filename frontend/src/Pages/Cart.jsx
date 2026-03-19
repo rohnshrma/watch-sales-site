@@ -39,10 +39,13 @@ const Cart = () => {
   };
 
   return (
-    <div className="container mt-5">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>Your Cart</h2>
-        <button className="btn btn-outline-danger" onClick={clearAll}>
+    <div className="page-shell">
+      <div className="page-header d-flex justify-content-between align-items-center flex-wrap">
+        <div>
+          <p className="page-eyebrow">Cart</p>
+          <h2>Your selected pieces</h2>
+        </div>
+        <button className="btn app-btn app-btn--ghost-danger" onClick={clearAll}>
           Clear Cart
         </button>
       </div>
@@ -56,14 +59,13 @@ const Cart = () => {
         <div className="alert alert-info">Your cart is empty.</div>
       ) : null}
       {cartItems.map((item) => (
-        <div key={getProductId(item)} className="card mb-3">
-          <div className="card-body d-flex justify-content-between align-items-center flex-wrap">
+        <div key={getProductId(item)} className="cart-item-card mb-3">
+          <div className="cart-item-card__body d-flex justify-content-between align-items-center flex-wrap">
             <div className="d-flex align-items-center">
               <img
                 src={item.imageUrl}
                 alt={item.name}
-                style={{ width: 80, height: 80, objectFit: "contain" }}
-                className="mr-3"
+                className="cart-item-card__image mr-3"
               />
               <div>
                 <h5 className="mb-1">{item.name}</h5>
@@ -74,13 +76,12 @@ const Cart = () => {
               <input
                 type="number"
                 min="0"
-                className="form-control mr-2"
-                style={{ width: 90 }}
+                className="form-control app-input cart-item-card__qty mr-2"
                 value={item.quantity}
                 onChange={(e) => updateQuantity(getProductId(item), e.target.value)}
               />
               <button
-                className="btn btn-outline-danger"
+                className="btn app-btn app-btn--ghost-danger"
                 onClick={() => removeItem(getProductId(item))}
               >
                 Remove
@@ -89,11 +90,11 @@ const Cart = () => {
           </div>
         </div>
       ))}
-      <div className="card mt-4">
-        <div className="card-body d-flex justify-content-between align-items-center">
+      <div className="cart-summary-card mt-4">
+        <div className="cart-summary-card__body d-flex justify-content-between align-items-center">
           <h4 className="mb-0">Total: ₹{Number(total).toLocaleString("en-IN")}</h4>
           <button
-            className="btn btn-success"
+            className="btn app-btn app-btn--primary"
             onClick={() => navigate("/checkout")}
             disabled={cartItems.length === 0}
           >

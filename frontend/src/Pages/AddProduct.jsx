@@ -92,10 +92,13 @@ const AddProduct = () => {
   };
 
   return (
-    <div className="container">
-      <div className="add-product">
-        <h1>➕ Add New Product</h1>
-        <hr />
+    <div className="page-shell page-shell--narrow">
+      <div className="form-shell">
+        <div className="page-header page-header--compact">
+          <p className="page-eyebrow">Admin</p>
+          <h1>Add New Product</h1>
+          <p className="page-subtext">Create a new product entry with clean details and pricing.</p>
+        </div>
         {error && (
           <div className="alert alert-danger" role="alert">
             <strong>Error!</strong> {error}
@@ -106,7 +109,7 @@ const AddProduct = () => {
             <strong>Success!</strong> {success}
           </div>
         )}
-        <form onSubmit={submitHandler}>
+        <form onSubmit={submitHandler} className="form-stack">
           <div className="form-group">
             <label htmlFor="productName">
               <strong>Product Name</strong>
@@ -117,7 +120,7 @@ const AddProduct = () => {
               name="name"
               id="productName"
               placeholder="Enter product name (min. 5 characters)"
-              className="form-control"
+              className="form-control app-input"
               value={product.name}
             />
           </div>
@@ -130,7 +133,7 @@ const AddProduct = () => {
               name="description"
               id="productDescription"
               placeholder="Enter product description (min. 20 characters)"
-              className="form-control"
+              className="form-control app-input"
               value={product.description}
               rows="4"
             ></textarea>
@@ -145,7 +148,7 @@ const AddProduct = () => {
               name="price"
               id="productPrice"
               placeholder="Enter price (e.g., 2999)"
-              className="form-control"
+              className="form-control app-input"
               value={product.price}
             />
           </div>
@@ -160,10 +163,10 @@ const AddProduct = () => {
               id="productImage"
               value={product.imageUrl}
               placeholder="Enter image URL"
-              className="form-control"
+              className="form-control app-input"
             />
           </div>
-          <button type="submit" className="btn btn-success btn-lg btn-block">
+          <button type="submit" className="btn app-btn app-btn--primary app-btn--block">
             Add Product
           </button>
         </form>

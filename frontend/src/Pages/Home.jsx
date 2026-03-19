@@ -20,7 +20,7 @@ const Home = () => {
 
   if (loading) {
     return (
-      <div className="container mt-5 text-center">
+      <div className="page-shell page-shell--center text-center">
         <div className="spinner-border" role="status">
           <span className="sr-only">Loading...</span>
         </div>
@@ -30,9 +30,12 @@ const Home = () => {
   }
 
   return (
-    <div className="home-page container">
+    <div className="page-shell home-page">
       <div className="page-header d-flex justify-content-between align-items-center flex-wrap">
-        <h1>🛍️ Our Collection</h1>
+        <div>
+          <p className="page-eyebrow">Collection</p>
+          <h1>Timeless watches with a cleaner shopping experience.</h1>
+        </div>
         <span className="product-count-badge">
           {products.length} {products.length === 1 ? "Product" : "Products"}
         </span>

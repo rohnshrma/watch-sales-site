@@ -27,7 +27,7 @@ const orderReducer = (state, action) => {
 
 export const OrderProvider = ({ children }) => {
   const [state, dispatch] = useReducer(orderReducer, initialState);
-  const { authHeaders, token } = useContext(AuthContext);
+  const { authHeaders, token, isAdmin } = useContext(AuthContext);
 
   const fetchOrders = async () => {
     if (!token) {
@@ -35,7 +35,8 @@ export const OrderProvider = ({ children }) => {
       return [];
     }
     dispatch({ type: "SET_LOADING", payload: true });
-    const res = await api.get("/api/orders", { headers: authHeaders });
+    const endpoint = isAdmin ? "/api/orders/admin/all" : "/api/orders";
+    const res = await api.get(endpoint, { headers: authHeaders });
     dispatch({ type: "SET_ORDERS", payload: res.data.data });
     return res.data.data;
   };

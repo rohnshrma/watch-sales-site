@@ -1,9 +1,33 @@
 import { useContext, useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import OrderContext from "../context/OrderContext";
+import AuthContext from "../context/AuthContext";
+
+const getOrderStatusClass = (status) => {
+  const statusMap = {
+    pending: "order-card--pending",
+    confirmed: "order-card--confirmed",
+    shipped: "order-card--shipped",
+    delivered: "order-card--delivered",
+    cancelled: "order-card--cancelled",
+  };
+
+  return statusMap[status] || "order-card--default";
+};
+
+const getPaymentStatusClass = (status) => {
+  const statusMap = {
+    pending: "order-pill--pending",
+    completed: "order-pill--completed",
+    failed: "order-pill--failed",
+  };
+
+  return statusMap[status] || "order-pill--neutral";
+};
 
 const Orders = () => {
   const { orders, loading, fetchOrders, cancelOrder } = useContext(OrderContext);
+  const { isAdmin } = useContext(AuthContext);
   const [error, setError] = useState("");
   const location = useLocation();
   const createdOrderId = location.state?.createdOrderId;
@@ -25,9 +49,19 @@ const Orders = () => {
   };
 
   return (
-    <div className="container mt-5">
-      <h2 className="mb-4">Your Orders</h2>
-      {createdOrderId ? (
+    <div className="page-shell">
+      <div className="page-header">
+        <div>
+          <p className="page-eyebrow">{isAdmin ? "Admin" : "Orders"}</p>
+          <h2>{isAdmin ? "All Orders" : "Your Orders"}</h2>
+          <p className="page-subtext">
+            {isAdmin
+              ? "Monitor customer activity and payment progress in one place."
+              : "Track your order history, payment state, and delivery progress."}
+          </p>
+        </div>
+      </div>
+      {!isAdmin && createdOrderId ? (
         <div className="alert alert-success">
           Order created successfully: {createdOrderId}
         </div>
@@ -42,13 +76,31 @@ const Orders = () => {
         <div className="alert alert-info">No orders found.</div>
       ) : null}
       {orders.map((order) => (
-        <div className="card mb-3" key={order._id}>
-          <div className="card-body">
+        <div
+          className={`card mb-3 order-card ${getOrderStatusClass(order.status)}`}
+          key={order._id}
+        >
+          <div className="card-body order-card__body">
             <div className="d-flex justify-content-between align-items-start flex-wrap">
               <div>
                 <h5>Order #{order._id}</h5>
-                <p className="mb-1">Status: {order.status}</p>
-                <p className="mb-1">Payment: {order.paymentStatus}</p>
+                {isAdmin && order.user ? (
+                  <p className="mb-1 order-card__customer">
+                    Customer: {order.user.name} ({order.user.email})
+                  </p>
+                ) : null}
+                <div className="d-flex flex-wrap gap-2 mb-2">
+                  <span className={`order-pill ${getOrderStatusClass(order.status)}`}>
+                    {order.status}
+                  </span>
+                  <span
+                    className={`order-pill ${getPaymentStatusClass(
+                      order.paymentStatus
+                    )}`}
+                  >
+                    Payment: {order.paymentStatus}
+                  </span>
+                </div>
                 <p className="mb-1">Method: {order.paymentMethod}</p>
                 <p className="mb-0">
                   Total: ₹{Number(order.total).toLocaleString("en-IN")}
@@ -69,7 +121,7 @@ const Orders = () => {
                   </small>
                 ) : null}
                 <button
-                  className="btn btn-outline-danger btn-sm"
+                  className="btn btn-outline-danger btn-sm order-card__cancel"
                   onClick={() => onCancel(order._id)}
                   disabled={[
                     "cancelled",

@@ -33,27 +33,28 @@ const ProductPage = () => {
     }
   };
 
-  if (!product) return <p>Loading Product...</p>;
+  if (!product) return <div className="page-shell page-shell--center">Loading product...</div>;
 
   return (
-    <div className="container mt-5">
-      <div className="row">
+    <div className="page-shell">
+      <div className="product-detail row align-items-center">
         <div className="col-md-6">
           <img
             src={product.imageUrl}
             alt={product.name}
-            className="img-fluid"
+            className="img-fluid product-detail__image"
           />
         </div>
 
         <div className="col-md-6">
+          <p className="page-eyebrow">Product Detail</p>
           <h2>{product.name}</h2>
-          <p>{product.description}</p>
-          <h4>₹{Number(product.price).toLocaleString("en-IN")}</h4>
+          <p className="product-detail__description">{product.description}</p>
+          <h4 className="product-detail__price">₹{Number(product.price).toLocaleString("en-IN")}</h4>
           {message ? <p className="text-success mt-2">{message}</p> : null}
           {error ? <p className="text-danger mt-2">{error}</p> : null}
 
-          <button className="btn btn-dark mt-3" onClick={addToCartHandler}>
+          <button className="btn app-btn app-btn--primary mt-3" onClick={addToCartHandler}>
             Add to Cart
           </button>
         </div>

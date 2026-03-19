@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   CREATE_STRIPE_PAYMENT_INTENT,
   CREATE_ORDER,
+  GET_ALL_ORDERS,
   GET_USER_ORDERS,
   GET_ORDER_BY_ID,
   CANCEL_ORDER,
@@ -18,6 +19,7 @@ router.route("/:orderId").get(GET_ORDER_BY_ID);
 router.route("/:orderId/cancel").put(CANCEL_ORDER);
 
 // admin routes
+router.route("/admin/all").get(isAdmin, GET_ALL_ORDERS);
 router.route("/:orderId/status").put(isAdmin, UPDATE_ORDER_STATUS);
 
 export default router;

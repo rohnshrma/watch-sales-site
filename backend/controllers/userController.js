@@ -1,5 +1,7 @@
 import User from "../models/user.js";
 import generateToken from "../utils/generateToken.js";
+import Order from "../models/order.js";
+import Product from "../models/product.js";
 
 export const REGISTER = async (req, res) => {
   try {
@@ -194,6 +196,70 @@ export const UPDATE_USER_PROFILE = async (req, res) => {
     });
   } catch (error) {
     return res.status(400).json({
+      status: "fail",
+      message: error.message,
+      data: null,
+    });
+  }
+};
+
+export const GET_ADMIN_DASHBOARD_STATS = async (req, res) => {
+  try {
+    const [
+      totalUsers,
+      activeUsers,
+      adminUsers,
+      totalProducts,
+      totalOrders,
+      pendingOrders,
+      completedOrders,
+      recentOrders,
+    ] = await Promise.all([
+      User.countDocuments({}),
+      User.countDocuments({ role: "user" }),
+      User.countDocuments({ role: "admin" }),
+      Product.countDocuments({}),
+      Order.countDocuments({}),
+      Order.countDocuments({
+        $or: [{ status: "pending" }, { paymentStatus: "pending" }],
+      }),
+      Order.countDocuments({ paymentStatus: "completed" }),
+      Order.find({})
+        .populate("user", "name email")
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select("total status paymentStatus createdAt user"),
+    ]);
+
+    const completedOrderRevenue = await Order.aggregate([
+      { $match: { paymentStatus: "completed" } },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: "$total" },
+        },
+      },
+    ]);
+
+    return res.status(200).json({
+      status: "success",
+      message: "Admin dashboard stats fetched successfully",
+      data: {
+        totals: {
+          totalUsers,
+          activeUsers,
+          adminUsers,
+          totalProducts,
+          totalOrders,
+          pendingOrders,
+          completedOrders,
+          totalRevenue: completedOrderRevenue[0]?.totalRevenue || 0,
+        },
+        recentOrders,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
       status: "fail",
       message: error.message,
       data: null,

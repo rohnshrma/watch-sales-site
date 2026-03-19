@@ -30,7 +30,7 @@ const Profile = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
-  const { user, fetchProfile, updateProfile } = useContext(AuthContext);
+  const { user, isAdmin, fetchProfile, updateProfile } = useContext(AuthContext);
 
   useEffect(() => {
     if (user) {
@@ -74,14 +74,23 @@ const Profile = () => {
   };
 
   return (
-    <div className="register container mt-5">
-      <h2 className="mb-4">My Profile</h2>
+    <div className="container mt-5">
+      <div className="profile-shell">
+        <div className="profile-shell__header">
+          <p className="profile-shell__eyebrow">
+            {isAdmin ? "Admin Settings" : "Account Settings"}
+          </p>
+          <h2 className="mb-2">Manage Profile</h2>
+          <p className="profile-shell__subtext">
+            Update your personal details and password from one place.
+          </p>
+        </div>
       {error ? <div className="alert alert-danger">{error}</div> : null}
       {success ? <div className="alert alert-success">{success}</div> : null}
-      <form onSubmit={submitHandler}>
+      <form onSubmit={submitHandler} className="profile-shell__form">
         <div className="form-group">
           <input
-            className="form-control"
+            className="form-control profile-shell__input"
             type="text"
             name="name"
             placeholder="Enter full name"
@@ -92,7 +101,7 @@ const Profile = () => {
         </div>
         <div className="form-group">
           <input
-            className="form-control"
+            className="form-control profile-shell__input"
             type="email"
             name="email"
             placeholder="Enter email address"
@@ -103,7 +112,7 @@ const Profile = () => {
         </div>
         <div className="form-group">
           <input
-            className="form-control"
+            className="form-control profile-shell__input"
             type="password"
             name="password"
             placeholder="Enter new password (optional)"
@@ -111,10 +120,11 @@ const Profile = () => {
             value={state.password}
           />
         </div>
-        <button className="btn btn-success" disabled={loading}>
-          {loading ? "Updating..." : "UPDATE PROFILE"}
+        <button className="btn btn-success profile-shell__button" disabled={loading}>
+          {loading ? "Saving..." : "Save Changes"}
         </button>
       </form>
+      </div>
     </div>
   );
 };
