@@ -43,6 +43,24 @@ const cardElementOptions = {
   },
 };
 
+const normalizeCountryCode = (country) => {
+  const value = country.trim();
+  if (!value) {
+    return "";
+  }
+
+  const upperValue = value.toUpperCase();
+  if (upperValue === "INDIA") {
+    return "IN";
+  }
+
+  if (upperValue === "UNITED STATES" || upperValue === "UNITED STATES OF AMERICA") {
+    return "US";
+  }
+
+  return upperValue;
+};
+
 const CheckoutForm = () => {
   const [state, dispatch] = useReducer(checkoutReducer, initialState);
   const [error, setError] = useState("");
@@ -73,12 +91,14 @@ const CheckoutForm = () => {
     setLoading(true);
     setError("");
     try {
+      const normalizedCountry = normalizeCountryCode(state.country);
+
       const shippingAddress = {
         street: state.street,
         city: state.city,
         state: state.state,
         zipCode: state.zipCode,
-        country: state.country,
+        country: normalizedCountry || state.country,
       };
 
       const paymentIntent = await createPaymentIntent({
@@ -103,7 +123,18 @@ const CheckoutForm = () => {
                 city: state.city,
                 state: state.state,
                 postal_code: state.zipCode,
+                country: normalizedCountry,
               },
+            },
+          },
+          shipping: {
+            name: user?.name || "Watch Store User",
+            address: {
+              line1: state.street,
+              city: state.city,
+              state: state.state,
+              postal_code: state.zipCode,
+              country: normalizedCountry,
             },
           },
         }
@@ -190,7 +221,7 @@ const CheckoutForm = () => {
             type="text"
             className="form-control"
             name="country"
-            placeholder="Country"
+            placeholder="Country code (e.g. IN)"
             value={state.country}
             onChange={changeHandler}
             required
