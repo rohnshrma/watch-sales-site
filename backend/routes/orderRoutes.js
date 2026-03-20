@@ -1,6 +1,6 @@
 import { Router } from "express";
 import {
-  CREATE_STRIPE_PAYMENT_INTENT,
+  CREATE_RAZORPAY_ORDER,
   CREATE_ORDER,
   GET_ALL_ORDERS,
   GET_USER_ORDERS,
@@ -13,7 +13,7 @@ import { isAdmin } from "../middlewares/authMiddleware.js";
 const router = Router();
 
 // user routes
-router.route("/payment-intent").post(CREATE_STRIPE_PAYMENT_INTENT);
+router.route("/payment-order").post(CREATE_RAZORPAY_ORDER);
 router.route("/").post(CREATE_ORDER).get(GET_USER_ORDERS);
 router.route("/:orderId").get(GET_ORDER_BY_ID);
 router.route("/:orderId/cancel").put(CANCEL_ORDER);

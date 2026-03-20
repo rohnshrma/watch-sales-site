@@ -105,9 +105,9 @@ const Orders = () => {
                 <p className="mb-0">
                   Total: ₹{Number(order.total).toLocaleString("en-IN")}
                 </p>
-                {order.paymentIntentId ? (
+                {order.paymentReferenceId ? (
                   <small className="text-muted d-block mt-2">
-                    Stripe Payment ID: {order.paymentIntentId}
+                    Razorpay Payment ID: {order.paymentReferenceId}
                   </small>
                 ) : null}
               </div>

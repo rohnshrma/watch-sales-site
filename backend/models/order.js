@@ -44,7 +44,7 @@ const orderSchema = new mongoose.Schema(
     },
     paymentMethod: {
       type: String,
-      enum: ["credit-card", "debit-card", "upi", "wallet", "stripe"],
+      enum: ["credit-card", "debit-card", "upi", "wallet", "razorpay"],
       required: true,
     },
     paymentStatus: {
@@ -52,7 +52,7 @@ const orderSchema = new mongoose.Schema(
       enum: ["pending", "completed", "failed"],
       default: "pending",
     },
-    paymentIntentId: {
+    paymentReferenceId: {
       type: String,
       default: null,
       index: true,
@@ -63,10 +63,12 @@ const orderSchema = new mongoose.Schema(
     },
     paymentResult: {
       id: String,
+      orderId: String,
       status: String,
       currency: String,
       amount: Number,
-      paymentMethodTypes: [String],
+      method: String,
+      signatureVerified: Boolean,
     },
   },
   { timestamps: true }

@@ -505,8 +505,9 @@ textarea {
   border-color: rgba(31, 106, 90, 0.4);
 }
 
-.checkout-card-input .StripeElement {
-  width: 100%;
+.checkout-card-input {
+  color: var(--muted);
+  font-weight: 600;
 }
 
 .checkout-total {

@@ -46,8 +46,8 @@ export const OrderProvider = ({ children }) => {
     return res.data.data;
   };
 
-  const createPaymentIntent = async (payload) => {
-    const res = await api.post("/api/orders/payment-intent", payload, {
+  const createRazorpayOrder = async (payload) => {
+    const res = await api.post("/api/orders/payment-order", payload, {
       headers: authHeaders,
     });
     return res.data.data;
@@ -68,7 +68,7 @@ export const OrderProvider = ({ children }) => {
         orders: state.orders,
         loading: state.loading,
         fetchOrders,
-        createPaymentIntent,
+        createRazorpayOrder,
         createOrder,
         cancelOrder,
       }}

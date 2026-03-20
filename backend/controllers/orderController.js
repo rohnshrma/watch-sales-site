@@ -1,6 +1,11 @@
 import Order from "../models/order.js";
 import Cart from "../models/cart.js";
-import { getStripeClient, getStripeCurrency } from "../utils/stripe.js";
+import crypto from "crypto";
+import {
+  getRazorpayClient,
+  getRazorpayCurrency,
+  getRazorpayKeyId,
+} from "../utils/razorpay.js";
 
 const allowedStatuses = [
   "pending",
@@ -43,7 +48,7 @@ const getAmountInSmallestUnit = (amount) => {
   return Math.round(Number(amount) * 100);
 };
 
-const buildStripeMetadata = (userId, cart) => {
+const buildRazorpayNotes = (userId, cart) => {
   return {
     userId: userId.toString(),
     cartTotal: String(Number(cart.total)),
@@ -51,7 +56,16 @@ const buildStripeMetadata = (userId, cart) => {
   };
 };
 
-export const CREATE_STRIPE_PAYMENT_INTENT = async (req, res) => {
+const verifyRazorpaySignature = (orderId, paymentId, signature) => {
+  const expectedSignature = crypto
+    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .update(`${orderId}|${paymentId}`)
+    .digest("hex");
+
+  return expectedSignature === signature;
+};
+
+export const CREATE_RAZORPAY_ORDER = async (req, res) => {
   try {
     const userId = req.user.id;
     const { shippingAddress } = req.body;
@@ -74,29 +88,30 @@ export const CREATE_STRIPE_PAYMENT_INTENT = async (req, res) => {
       });
     }
 
-    const stripe = getStripeClient();
-    const currency = getStripeCurrency();
+    const razorpay = getRazorpayClient();
+    const currency = getRazorpayCurrency();
+    const amount = getAmountInSmallestUnit(cart.total);
 
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: getAmountInSmallestUnit(cart.total),
+    const paymentOrder = await razorpay.orders.create({
+      amount,
       currency,
-      payment_method_types: ["card"],
-      metadata: buildStripeMetadata(userId, cart),
-      description: `Watch store order for user ${userId}`,
+      receipt: `order_${userId}_${Date.now()}`,
+      notes: buildRazorpayNotes(userId, cart),
     });
 
     return res.status(200).json({
       status: "success",
-      message: "Stripe payment intent created successfully",
+      message: "Razorpay order created successfully",
       data: {
-        paymentIntentId: paymentIntent.id,
-        clientSecret: paymentIntent.client_secret,
+        orderId: paymentOrder.id,
+        keyId: getRazorpayKeyId(),
         amount: cart.total,
+        amountInPaise: amount,
         currency,
       },
     });
   } catch (error) {
-    const statusCode = error.type?.startsWith("Stripe") ? 400 : 500;
+    const statusCode = error.statusCode || 500;
 
     return res.status(statusCode).json({
       status: "fail",
@@ -109,7 +124,13 @@ export const CREATE_STRIPE_PAYMENT_INTENT = async (req, res) => {
 export const CREATE_ORDER = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { shippingAddress, paymentMethod, paymentIntentId } = req.body;
+    const {
+      shippingAddress,
+      paymentMethod,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+    } = req.body;
 
     if (!shippingAddress || !paymentMethod) {
       return res.status(400).json({
@@ -147,16 +168,19 @@ export const CREATE_ORDER = async (req, res) => {
       paymentStatus: "pending",
     };
 
-    if (paymentMethod === "stripe") {
-      if (!paymentIntentId) {
+    if (paymentMethod === "razorpay") {
+      if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
         return res.status(400).json({
           status: "fail",
-          message: "paymentIntentId is required for Stripe payments",
+          message:
+            "razorpayOrderId, razorpayPaymentId, and razorpaySignature are required",
           data: null,
         });
       }
 
-      const existingOrder = await Order.findOne({ paymentIntentId });
+      const existingOrder = await Order.findOne({
+        paymentReferenceId: razorpayPaymentId,
+      });
       if (existingOrder) {
         return res.status(409).json({
           status: "fail",
@@ -165,35 +189,64 @@ export const CREATE_ORDER = async (req, res) => {
         });
       }
 
-      const stripe = getStripeClient();
-      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      const signatureIsValid = verifyRazorpaySignature(
+        razorpayOrderId,
+        razorpayPaymentId,
+        razorpaySignature
+      );
 
-      if (!paymentIntent) {
-        return res.status(404).json({
-          status: "fail",
-          message: "Stripe payment intent not found",
-          data: null,
-        });
-      }
-
-      if (paymentIntent.metadata?.userId !== userId.toString()) {
-        return res.status(403).json({
-          status: "fail",
-          message: "Payment intent does not belong to the current user",
-          data: null,
-        });
-      }
-
-      if (paymentIntent.status !== "succeeded") {
+      if (!signatureIsValid) {
         return res.status(400).json({
           status: "fail",
-          message: "Stripe payment has not been completed",
+          message: "Razorpay signature verification failed",
+          data: null,
+        });
+      }
+
+      const razorpay = getRazorpayClient();
+      const [payment, paymentOrder] = await Promise.all([
+        razorpay.payments.fetch(razorpayPaymentId),
+        razorpay.orders.fetch(razorpayOrderId),
+      ]);
+
+      if (!payment || !paymentOrder) {
+        return res.status(404).json({
+          status: "fail",
+          message: "Razorpay payment details not found",
+          data: null,
+        });
+      }
+
+      if (paymentOrder.notes?.userId !== userId.toString()) {
+        return res.status(403).json({
+          status: "fail",
+          message: "Payment order does not belong to the current user",
+          data: null,
+        });
+      }
+
+      if (payment.order_id !== razorpayOrderId) {
+        return res.status(400).json({
+          status: "fail",
+          message: "Payment does not match the supplied Razorpay order",
+          data: null,
+        });
+      }
+
+      if (!["authorized", "captured"].includes(payment.status)) {
+        return res.status(400).json({
+          status: "fail",
+          message: "Razorpay payment has not been completed",
           data: null,
         });
       }
 
       const expectedAmount = getAmountInSmallestUnit(cart.total);
-      if (paymentIntent.amount !== expectedAmount) {
+      if (
+        payment.amount !== expectedAmount ||
+        paymentOrder.amount !== expectedAmount ||
+        payment.currency !== getRazorpayCurrency()
+      ) {
         return res.status(400).json({
           status: "fail",
           message: "Paid amount does not match the current cart total",
@@ -205,14 +258,16 @@ export const CREATE_ORDER = async (req, res) => {
         ...orderPayload,
         status: "confirmed",
         paymentStatus: "completed",
-        paymentIntentId: paymentIntent.id,
+        paymentReferenceId: payment.id,
         paidAt: new Date(),
         paymentResult: {
-          id: paymentIntent.id,
-          status: paymentIntent.status,
-          currency: paymentIntent.currency,
-          amount: paymentIntent.amount,
-          paymentMethodTypes: paymentIntent.payment_method_types,
+          id: payment.id,
+          orderId: payment.order_id,
+          status: payment.status,
+          currency: payment.currency,
+          amount: payment.amount,
+          method: payment.method,
+          signatureVerified: true,
         },
       };
     }

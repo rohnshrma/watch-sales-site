@@ -1,7 +1,5 @@
 import { useContext, useReducer, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CardElement, Elements, useElements, useStripe } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
 import OrderContext from "../context/OrderContext";
 import CartContext from "../context/CartContext";
 import AuthContext from "../context/AuthContext";
@@ -12,7 +10,7 @@ const initialState = {
   state: "",
   zipCode: "",
   country: "",
-  paymentMethod: "stripe",
+  paymentMethod: "razorpay",
 };
 
 const checkoutReducer = (state, action) => {
@@ -22,25 +20,24 @@ const checkoutReducer = (state, action) => {
       [action.type]: action.payload,
     };
   }
+
   return state;
 };
 
-const stripePublicKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "";
-const stripePromise = stripePublicKey ? loadStripe(stripePublicKey) : null;
+const razorpayKeyId = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
 
-const cardElementOptions = {
-  style: {
-    base: {
-      fontSize: "16px",
-      color: "#212529",
-      "::placeholder": {
-        color: "#6c757d",
-      },
-    },
-    invalid: {
-      color: "#dc3545",
-    },
-  },
+const loadRazorpayCheckout = () => {
+  if (window.Razorpay) {
+    return Promise.resolve(true);
+  }
+
+  return new Promise((resolve) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
 };
 
 const normalizeCountryCode = (country) => {
@@ -61,13 +58,11 @@ const normalizeCountryCode = (country) => {
   return upperValue;
 };
 
-const CheckoutForm = () => {
+const Checkout = () => {
   const [state, dispatch] = useReducer(checkoutReducer, initialState);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const stripe = useStripe();
-  const elements = useElements();
-  const { createPaymentIntent, createOrder } = useContext(OrderContext);
+  const { createRazorpayOrder, createOrder } = useContext(OrderContext);
   const { cartItems, total, fetchCart } = useContext(CartContext);
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
@@ -76,23 +71,70 @@ const CheckoutForm = () => {
     dispatch({ type: e.target.name, payload: e.target.value });
   };
 
+  const openRazorpayCheckout = (paymentOrder, shippingAddress) => {
+    return new Promise((resolve, reject) => {
+      const razorpay = new window.Razorpay({
+        key: paymentOrder.keyId,
+        amount: paymentOrder.amountInPaise,
+        currency: paymentOrder.currency,
+        name: "Watch Store",
+        description: "Secure watch order payment",
+        order_id: paymentOrder.orderId,
+        handler: async (response) => {
+          try {
+            const order = await createOrder({
+              shippingAddress,
+              paymentMethod: "razorpay",
+              razorpayOrderId: response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            });
+            resolve(order);
+          } catch (err) {
+            reject(err);
+          }
+        },
+        modal: {
+          ondismiss: () => reject(new Error("Payment was cancelled")),
+        },
+        prefill: {
+          name: user?.name || "Watch Store User",
+          email: user?.email || "",
+        },
+        notes: {
+          street: shippingAddress.street,
+          city: shippingAddress.city,
+          state: shippingAddress.state,
+          zipCode: shippingAddress.zipCode,
+          country: shippingAddress.country,
+        },
+        theme: {
+          color: "#1f6a5a",
+        },
+      });
+
+      razorpay.open();
+    });
+  };
+
   const submitHandler = async (e) => {
     e.preventDefault();
+
     if (cartItems.length === 0) {
       setError("Cart is empty");
       return;
     }
 
-    if (!stripe || !elements) {
-      setError("Stripe has not loaded yet");
-      return;
-    }
-
     setLoading(true);
     setError("");
-    try {
-      const normalizedCountry = normalizeCountryCode(state.country);
 
+    try {
+      const scriptLoaded = await loadRazorpayCheckout();
+      if (!scriptLoaded) {
+        throw new Error("Razorpay checkout failed to load");
+      }
+
+      const normalizedCountry = normalizeCountryCode(state.country);
       const shippingAddress = {
         street: state.street,
         city: state.city,
@@ -101,58 +143,9 @@ const CheckoutForm = () => {
         country: normalizedCountry || state.country,
       };
 
-      const paymentIntent = await createPaymentIntent({
-        shippingAddress,
-      });
+      const paymentOrder = await createRazorpayOrder({ shippingAddress });
+      const order = await openRazorpayCheckout(paymentOrder, shippingAddress);
 
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) {
-        throw new Error("Card form is not ready");
-      }
-
-      const confirmation = await stripe.confirmCardPayment(
-        paymentIntent.clientSecret,
-        {
-          payment_method: {
-            card: cardElement,
-            billing_details: {
-              name: user?.name || "Watch Store User",
-              email: user?.email || "",
-              address: {
-                line1: state.street,
-                city: state.city,
-                state: state.state,
-                postal_code: state.zipCode,
-                country: normalizedCountry,
-              },
-            },
-          },
-          shipping: {
-            name: user?.name || "Watch Store User",
-            address: {
-              line1: state.street,
-              city: state.city,
-              state: state.state,
-              postal_code: state.zipCode,
-              country: normalizedCountry,
-            },
-          },
-        }
-      );
-
-      if (confirmation.error) {
-        throw new Error(confirmation.error.message || "Stripe payment failed");
-      }
-
-      if (confirmation.paymentIntent?.status !== "succeeded") {
-        throw new Error("Payment was not completed successfully");
-      }
-
-      const order = await createOrder({
-        shippingAddress,
-        paymentMethod: "stripe",
-        paymentIntentId: confirmation.paymentIntent.id,
-      });
       await fetchCart();
       navigate("/orders", {
         state: { createdOrderId: order._id },
@@ -164,18 +157,34 @@ const CheckoutForm = () => {
     }
   };
 
+  if (!razorpayKeyId) {
+    return (
+      <div className="page-shell page-shell--narrow">
+        <div className="form-shell">
+          <h2 className="mb-4">Checkout</h2>
+          <div className="alert alert-warning mb-0">
+            Set <code>VITE_RAZORPAY_KEY_ID</code> in the frontend environment to enable
+            Razorpay checkout.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="page-shell page-shell--narrow">
       <div className="form-shell">
         <div className="page-header page-header--compact">
           <p className="page-eyebrow">Checkout</p>
           <h2>Complete your order</h2>
-          <p className="page-subtext">Enter shipping details and confirm your Stripe payment.</p>
+          <p className="page-subtext">
+            Enter shipping details and finish your payment with Razorpay.
+          </p>
         </div>
         {error ? <div className="alert alert-danger">{error}</div> : null}
         <div className="alert alert-info">
-          Use Stripe test card <strong>4242 4242 4242 4242</strong>, any future expiry,
-          any 3-digit CVC, and any postal code.
+          Razorpay will open a secure checkout window after you review your shipping
+          details.
         </div>
         <form onSubmit={submitHandler} className="form-stack">
           <div className="form-group">
@@ -241,46 +250,21 @@ const CheckoutForm = () => {
               onChange={changeHandler}
               disabled
             >
-              <option value="stripe">Stripe Test Mode</option>
+              <option value="razorpay">Razorpay</option>
             </select>
           </div>
-          <div className="form-group">
-            <label className="font-weight-bold mb-2">Card Details</label>
-            <div className="checkout-card-input">
-              <CardElement options={cardElementOptions} />
-            </div>
+          <div className="checkout-card-input">
+            Secure payment is handled in the Razorpay popup after form submission.
           </div>
           <div className="checkout-total">
             <strong>Total:</strong> ₹{Number(total).toLocaleString("en-IN")}
           </div>
           <button className="btn app-btn app-btn--primary app-btn--block" disabled={loading}>
-            {loading ? "Processing payment..." : "Pay and Place Order"}
+            {loading ? "Opening Razorpay..." : "Pay with Razorpay"}
           </button>
         </form>
       </div>
     </div>
-  );
-};
-
-const Checkout = () => {
-  if (!stripePromise) {
-    return (
-      <div className="page-shell page-shell--narrow">
-        <div className="form-shell">
-          <h2 className="mb-4">Checkout</h2>
-          <div className="alert alert-warning mb-0">
-            Set <code>VITE_STRIPE_PUBLISHABLE_KEY</code> in the frontend environment to
-            enable Stripe test payments.
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <Elements stripe={stripePromise}>
-      <CheckoutForm />
-    </Elements>
   );
 };
 
